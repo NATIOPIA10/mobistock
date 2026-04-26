@@ -51,15 +51,17 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     const newAlerts: any[] = [];
     try {
-      // 1. Fetch Orders for metrics
+      // 1. Fetch Data
       const { data: ordersData } = await supabase.from('orders').select('*');
       const { data: itemsData } = await supabase.from('order_items').select('*');
+      const { data: productsData } = await supabase.from('products').select('*, variants(*)');
       let salesCount: Record<string, number> = {};
 
       if (ordersData) {
-        const totalRev = ordersData.reduce((sum, o) => sum + Number(o.total_amount), 0);
+        const completedOrders = ordersData.filter(o => o.status === 'completed');
+        const totalRev = completedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
         const today = new Date().toISOString().split('T')[0];
-        const todayS = ordersData
+        const todayS = completedOrders
           .filter(o => o.created_at.startsWith(today))
           .reduce((sum, o) => sum + Number(o.total_amount), 0);
         
@@ -68,26 +70,27 @@ export default function Dashboard() {
           totalRevenue: totalRev,
           totalProfit: totalRev * 0.3 
         });
-      }
 
-      // 2. Fetch Products for best sellers and alerts
-      const { data: productsData } = await supabase.from('products').select('*, variants(*)');
+        // Use only completed orders for best sellers
+        const completedOrderIds = new Set(completedOrders.map(o => o.id));
+        const filteredItems = itemsData?.filter(item => completedOrderIds.has(item.order_id)) || [];
 
-      if (itemsData && productsData) {
-        // Create a map of variant_id -> product_id
-        const variantToProduct: Record<string, string> = {};
-        productsData.forEach(p => {
-          p.variants?.forEach((v: any) => {
-            variantToProduct[v.id] = p.id;
+        if (productsData) {
+          // Create a map of variant_id -> product_id
+          const variantToProduct: Record<string, string> = {};
+          productsData.forEach(p => {
+            p.variants?.forEach((v: any) => {
+              variantToProduct[v.id] = p.id;
+            });
           });
-        });
 
-        itemsData.forEach((item: any) => {
-          const productId = item.product_id || variantToProduct[item.variant_id];
-          if (productId) {
-            salesCount[productId] = (salesCount[productId] || 0) + Number(item.quantity || 0);
-          }
-        });
+          filteredItems.forEach((item: any) => {
+            const productId = item.product_id || variantToProduct[item.variant_id];
+            if (productId) {
+              salesCount[productId] = (salesCount[productId] || 0) + Number(item.quantity || 0);
+            }
+          });
+        }
       }
       if (productsData) {
         // Fetch Best Sellers by joining orders

@@ -77,12 +77,48 @@ export default function Orders() {
 
   const handleUpdateStatus = async (dbId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
+      // 1. Get old status and order items
+      const { data: order, error: orderErr } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('id', dbId)
+        .single();
+      
+      if (orderErr) throw orderErr;
+      const oldStatus = order.status;
+
+      // 2. Update Status
+      const { error: updateErr } = await supabase
         .from('orders')
         .update({ status: newStatus })
         .eq('id', dbId);
       
-      if (error) throw error;
+      if (updateErr) throw updateErr;
+
+      // 3. Handle Stock (Return if moving away from completed, Deduct if moving to completed)
+      const isMovingFromCompleted = oldStatus === 'completed' && (newStatus === 'refunded' || newStatus === 'pending');
+      const isMovingToCompleted = (oldStatus === 'refunded' || oldStatus === 'pending') && newStatus === 'completed';
+
+      if (isMovingFromCompleted || isMovingToCompleted) {
+        for (const item of order.order_items) {
+          if (item.variant_id) {
+            const { data: variant } = await supabase
+              .from('variants')
+              .select('stock')
+              .eq('id', item.variant_id)
+              .single();
+            
+            if (variant) {
+              const stockChange = isMovingFromCompleted ? item.quantity : -item.quantity;
+              await supabase
+                .from('variants')
+                .update({ stock: Math.max(0, variant.stock + stockChange) })
+                .eq('id', item.variant_id);
+            }
+          }
+        }
+      }
+
       fetchOrders(); // Refresh
     } catch (e) {
       console.error("Status Update Error:", e);
