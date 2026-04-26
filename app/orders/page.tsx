@@ -58,6 +58,7 @@ export default function Orders() {
 
       if (data) {
         const formatted = data.map((o: any) => ({
+          dbId: o.id, // Keep original ID for updates
           id: `#${o.id.substring(0, 4)}-${o.id.substring(o.id.length - 1).toUpperCase()}`,
           customer: o.customer_name,
           items: o.order_items.length,
@@ -71,6 +72,20 @@ export default function Orders() {
       }
     } catch (e) {
       console.error("Orders Fetch Error:", e);
+    }
+  };
+
+  const handleUpdateStatus = async (dbId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', dbId);
+      
+      if (error) throw error;
+      fetchOrders(); // Refresh
+    } catch (e) {
+      console.error("Status Update Error:", e);
     }
   };
 
@@ -166,9 +181,16 @@ export default function Orders() {
                         {formatCurrency(order.total, settings)}
                       </td>
                       <td className="px-8 py-6">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColors[order.status]}`}>
-                          {order.status}
-                        </span>
+                        <select 
+                          value={order.status}
+                          onChange={(e) => handleUpdateStatus(order.dbId, e.target.value)}
+                          className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest outline-none border-none cursor-pointer appearance-none transition-all ${statusColors[order.status]}`}
+                        >
+                          <option value="completed">Completed</option>
+                          <option value="pending">Pending</option>
+                          <option value="refunded">Refunded</option>
+                          <option value="processing">Processing</option>
+                        </select>
                       </td>
                       <td className="px-8 py-6 text-right text-sm font-bold text-on-surface-variant">
                         {order.time}
