@@ -18,15 +18,17 @@ export default function Profile() {
   }, []);
 
   const fetchProfile = async () => {
-    const savedImg = localStorage.getItem("mobistock_profile_img");
-    const savedName = localStorage.getItem("mobistock_admin_name");
-    const savedEmail = localStorage.getItem("mobistock_admin_email");
-    const savedPhone = localStorage.getItem("mobistock_admin_phone");
-    
-    if (savedImg) setProfileImage(savedImg);
-    if (savedName) setAdminName(savedName);
-    if (savedEmail) setAdminEmail(savedEmail);
-    if (savedPhone) setAdminPhone(savedPhone);
+    try {
+      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      if (data) {
+        if (data.admin_photo) setProfileImage(data.admin_photo);
+        if (data.store_name) setAdminName(data.store_name);
+        if (data.email) setAdminEmail(data.email);
+        if (data.phone) setAdminPhone(data.phone);
+      }
+    } catch (e) {
+      console.error("Profile Fetch Error:", e);
+    }
   };
 
   if (!mounted) return null;
@@ -39,20 +41,36 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64 = reader.result as string;
         setProfileImage(base64);
-        localStorage.setItem("mobistock_profile_img", base64);
+        
+        // Auto-save photo to Supabase
+        await supabase.from('store_settings').upsert({ id: 1, admin_photo: base64, updated_at: new Date().toISOString() });
+        window.dispatchEvent(new Event('mobistock_settings_updated'));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSave = () => {
-    localStorage.setItem("mobistock_admin_name", adminName);
-    localStorage.setItem("mobistock_admin_email", adminEmail);
-    localStorage.setItem("mobistock_admin_phone", adminPhone);
-    alert("Profile settings synchronized successfully!");
+  const handleSave = async () => {
+    try {
+      const { error } = await supabase.from('store_settings').upsert({
+        id: 1,
+        store_name: adminName,
+        email: adminEmail,
+        phone: adminPhone,
+        admin_photo: profileImage,
+        updated_at: new Date().toISOString()
+      });
+      
+      if (error) throw error;
+
+      window.dispatchEvent(new Event('mobistock_settings_updated'));
+      alert("Profile settings synchronized successfully!");
+    } catch (e: any) {
+      alert("Error saving profile: " + e.message);
+    }
   };
 
   return (
