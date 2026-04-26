@@ -89,17 +89,19 @@ export default function Settings() {
 
     setIsResetting(true);
     try {
-      // Deleting products will cascade delete variants due to the SQL constraint we added
-      const { error } = await supabase.from('products').delete().neq('id', 0); // Delete all
-      if (error) throw error;
+      // 1. Delete all products (cascades to variants)
+      const { error: pError } = await supabase.from('products').delete().neq('id', 0);
+      if (pError) throw pError;
 
-      await supabase.from('security_logs').insert({
-        event: "Database Reset",
-        details: "All products and variants were wiped by administrator.",
-        status: "success"
-      });
+      // 2. Delete all orders (cascades to order_items)
+      const { error: oError } = await supabase.from('orders').delete().neq('id', 0);
+      if (oError) throw oError;
 
-      alert("Database reset successfully. All product data has been cleared.");
+      // 3. Delete all security logs
+      const { error: lError } = await supabase.from('security_logs').delete().neq('id', 0);
+      if (lError) throw lError;
+
+      alert("Full database reset successful. All products, sales history, and logs have been cleared. Store settings were preserved.");
       window.location.reload();
     } catch (e: any) {
       alert("Reset failed: " + e.message);
