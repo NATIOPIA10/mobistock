@@ -152,6 +152,19 @@ export default function NewProduct() {
     }
 
     try {
+      // 0. Check if SKU already exists to prevent duplicate key error
+      const targetSku = variants[0]?.sku || `PRD-${Date.now()}`;
+      const { data: existing } = await supabase
+        .from('products')
+        .select('sku')
+        .eq('sku', targetSku)
+        .maybeSingle();
+
+      if (existing) {
+        alert(`A product with SKU "${targetSku}" already exists in your database. \n\nPlease delete the existing product first or change the Brand/Name to generate a unique SKU.`);
+        return;
+      }
+
       // 1. Insert Product
       const { data: productData, error: productError } = await supabase
         .from('products')
