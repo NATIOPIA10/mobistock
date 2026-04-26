@@ -128,12 +128,25 @@ export default function Dashboard() {
       if (savedPhoto) setAdminPhoto(savedPhoto);
 
       // 4. Set Badge if there are alerts
-      setShowBadge(newAlerts.length > 0);
+      const lastRead = localStorage.getItem('mobistock_notifications_read_at');
+      if (lastRead && newAlerts.length > 0) {
+        // Only show badge if there's a NEW alert after lastRead
+        // For now, since low stock is persistent, we'll just hide it if they clicked mark all as read recently
+        setShowBadge(false);
+      } else {
+        setShowBadge(newAlerts.length > 0);
+      }
 
     } catch (e) {
       console.error("Dashboard Fetch Error:", e);
     }
   };
+
+  useEffect(() => {
+    const handleRead = () => setShowBadge(false);
+    window.addEventListener('mobistock_notifications_read', handleRead);
+    return () => window.removeEventListener('mobistock_notifications_read', handleRead);
+  }, []);
 
   if (!mounted) return null;
 
@@ -278,11 +291,13 @@ export default function Dashboard() {
         <motion.div {...fadeUp(0.45)}>
           <h3 className="text-xl font-bold text-primary mb-6 flex items-center gap-2">
             Attention Required
-            <motion.span
-              animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
-              transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-              className="w-2 h-2 rounded-full bg-error ml-1 inline-block"
-            ></motion.span>
+            {showBadge && (
+              <motion.span
+                animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+                transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                className="w-2 h-2 rounded-full bg-error ml-1 inline-block"
+              ></motion.span>
+            )}
           </h3>
           <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
             {alerts.length > 0 ? alerts.map((alert) => (

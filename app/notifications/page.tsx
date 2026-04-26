@@ -96,7 +96,17 @@ export default function Notifications() {
             <h2 className="text-3xl font-extrabold tracking-tight text-primary">Notifications</h2>
             <p className="text-on-surface-variant mt-1">Your recent alerts and messages.</p>
           </div>
-          <button className="text-sm font-bold text-primary hover:underline">Mark all as read</button>
+          <button 
+            onClick={() => {
+              setAlerts([]);
+              localStorage.setItem('mobistock_notifications_read_at', new Date().toISOString());
+              window.dispatchEvent(new Event('mobistock_notifications_read'));
+              alert("All notifications marked as read.");
+            }}
+            className="text-sm font-bold text-primary hover:underline"
+          >
+            Mark all as read
+          </button>
         </motion.div>
 
         <div className="space-y-4">
