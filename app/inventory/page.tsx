@@ -46,7 +46,8 @@ export default function Inventory() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*, variants(*)');
+        .select('*, variants(*)')
+        .eq('is_archived', false);
       
       if (error) throw error;
 
@@ -137,25 +138,45 @@ export default function Inventory() {
     }
   };
 
-  const handleStatusChange = (sku: string, status: string) => {
-    setItems(items.map(item => item.sku === sku ? { ...item, status } : item));
-    setActiveMenuId(null);
+  const handleStatusChange = async (sku: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ status: status }) // Assuming a status column exists or adding one
+        .eq('sku', sku);
+      
+      if (error) throw error;
+      
+      setItems(items.map(item => item.sku === sku ? { ...item, status } : item));
+      setActiveMenuId(null);
+      alert(`Product marked as ${status}.`);
+    } catch (e: any) {
+      alert(`Error updating status: ${e.message}`);
+    }
   };
 
   const handleDelete = async (sku: string) => {
-    if (confirm("Are you sure you want to delete this product?")) {
+    if (confirm("This product has sales history. Would you like to Archive it instead? (It will be hidden from inventory and POS but kept in records)")) {
       try {
         const { error } = await supabase
           .from('products')
-          .delete()
+          .update({ is_archived: true })
           .eq('sku', sku);
 
         if (error) throw error;
 
+        // Log the deletion
+        await supabase.from('security_logs').insert({
+          event: "Product Archived",
+          details: `Product with SKU ${sku} was archived by admin.`,
+          status: "success"
+        });
+
         setItems(items.filter(item => item.sku !== sku));
         setActiveMenuId(null);
+        alert("Product archived successfully.");
       } catch (e: any) {
-        alert(`Error deleting product: ${e.message}`);
+        alert(`Error archiving product: ${e.message}`);
       }
     }
   };
