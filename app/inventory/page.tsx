@@ -60,7 +60,8 @@ export default function Inventory() {
           const maxPrice = Math.max(...p.variants.map((v: any) => v.price));
           
           totalVal += p.variants.reduce((sum: number, v: any) => sum + (v.stock * v.price), 0);
-          if (totalStock > 0 && totalStock < 10) lowS++;
+          const threshold = settings?.low_stock_threshold || 10;
+          if (totalStock > 0 && totalStock < threshold) lowS++;
 
           return {
             id: p.id,
@@ -69,7 +70,7 @@ export default function Inventory() {
             title: p.title,
             name: `${p.brand} ${p.title}`,
             category: p.category,
-            status: totalStock === 0 ? "out-of-stock" : totalStock < 10 ? "low-stock" : "in-stock",
+            status: totalStock === 0 ? "out-of-stock" : totalStock < (settings?.low_stock_threshold || 10) ? "low-stock" : "in-stock",
             variantCount: p.variants.length,
             variants: p.variants,
             stock: totalStock,
@@ -323,9 +324,8 @@ export default function Inventory() {
                       <span className="bg-surface text-on-surface px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border border-outline-variant/20">
                         SKU: {item.sku}
                       </span>
-                      {item.status === "in-stock" || item.status === "active" ? (
                         <span className="bg-tertiary-fixed/20 text-on-tertiary-fixed px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-max mx-auto lg:mx-0 shadow-[0_0_15px_rgba(111,251,190,0.2)]">
-                          <div className="w-2 h-2 rounded-full bg-tertiary-fixed"></div> Active
+                          <div className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></div> Good Stage
                         </span>
                       ) : item.status === "suspended" ? (
                         <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-max mx-auto lg:mx-0">

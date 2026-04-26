@@ -37,6 +37,7 @@ export default function Notifications() {
 
       // 1. Check for Low Stock (Only if enabled in settings)
       if (settings?.notify_low_stock !== false) {
+        const threshold = settings?.low_stock_threshold || 10;
         products?.forEach(p => {
           const totalStock = p.variants.reduce((s: number, v: any) => s + v.stock, 0);
           if (totalStock === 0) {
@@ -49,7 +50,7 @@ export default function Notifications() {
               color: "text-error",
               bg: "bg-error-container"
             });
-          } else if (totalStock < 5) {
+          } else if (totalStock < threshold) {
             newAlerts.push({
               id: `stock-low-${p.id}`,
               title: "Low Stock Alert",

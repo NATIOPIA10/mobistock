@@ -110,17 +110,18 @@ export default function Dashboard() {
         // Generate Alerts based on stock
         productsData.forEach(p => {
           const totalStock = p.variants.reduce((sum: number, v: any) => sum + v.stock, 0);
+          const threshold = settings?.low_stock_threshold || 10;
           if (totalStock === 0) {
             newAlerts.push({ 
               border: "border-error", iconBg: "bg-error-container", iconColor: "text-error", icon: "warning", 
               badge: "Out of Stock", badgeBg: "text-error bg-error-container", 
               title: p.title, desc: `0 units remaining. Reorder immediately.`, delay: 0.1 
             });
-          } else if (totalStock < 10) {
+          } else if (totalStock < threshold) {
             newAlerts.push({ 
               border: "border-amber-500", iconBg: "bg-amber-50", iconColor: "text-amber-600", icon: "inventory", 
               badge: "Low Stock", badgeBg: "text-amber-700 bg-amber-100", 
-              title: p.title, desc: `Only ${totalStock} units left. threshold reached.`, delay: 0.2 
+              title: p.title, desc: `Only ${totalStock} units left. Threshold reached.`, delay: 0.2 
             });
           }
         });
@@ -380,7 +381,7 @@ export default function Dashboard() {
                 </div>
                 <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/10">
                   <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">Stock Level</p>
-                  <p className={`font-headline font-black text-3xl ${detailProduct.stock < 10 ? 'text-error' : 'text-emerald-600'}`}>
+                  <p className={`font-headline font-black text-3xl ${detailProduct.stock < (settings?.low_stock_threshold || 10) ? 'text-error' : 'text-emerald-600'}`}>
                     {detailProduct.stock}
                   </p>
                 </div>
