@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+import "./globals.css";
+
+import AuthWrapper from "@/components/AuthWrapper";
 
 const manrope = Manrope({ subsets: ["latin"], display: 'swap' });
 
@@ -28,9 +29,9 @@ export default function RootLayout({
         className={`${manrope.className} bg-surface text-on-surface antialiased min-h-screen flex flex-col md:flex-row`}
         suppressHydrationWarning
       >
-        <Sidebar />
-        <Header />
-        {children}
+        <AuthWrapper>
+          {children}
+        </AuthWrapper>
       </body>
     </html>
   );
