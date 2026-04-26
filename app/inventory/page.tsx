@@ -19,6 +19,9 @@ export default function Inventory() {
   const [stats, setStats] = useState({ totalItems: 0, lowStock: 0, totalValue: 0 });
   const [settings, setSettings] = useState<any>(null);
 
+  // Edit State
+  const [editData, setEditData] = useState<any>({ title: "", brand: "", sku: "", category: "" });
+
   useEffect(() => {
     setMounted(true);
     fetchSettings();
@@ -62,6 +65,8 @@ export default function Inventory() {
           return {
             id: p.id,
             sku: p.sku,
+            brand: p.brand,
+            title: p.title,
             name: `${p.brand} ${p.title}`,
             category: p.category,
             status: totalStock === 0 ? "out-of-stock" : totalStock < 10 ? "low-stock" : "in-stock",
@@ -87,7 +92,35 @@ export default function Inventory() {
 
   const openEdit = (product: any) => {
     setSelectedProduct(product);
+    setEditData({
+      title: product.title,
+      brand: product.brand,
+      sku: product.sku,
+      category: product.category || "Smartphones"
+    });
     setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          title: editData.title,
+          brand: editData.brand,
+          sku: editData.sku,
+          category: editData.category
+        })
+        .eq('id', selectedProduct.id);
+
+      if (error) throw error;
+
+      setIsEditing(false);
+      fetchInventory();
+      alert("Product updated successfully!");
+    } catch (e: any) {
+      alert(`Error updating product: ${e.message}`);
+    }
   };
 
   const handleStatusChange = (sku: string, status: string) => {
