@@ -251,7 +251,7 @@ export default function NewProduct() {
                 <div>
                   <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Category</label>
                   <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body text-base">
-                    {dynamicCategories.map(cat => (
+                    {dynamicCategories.map((cat: string) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
