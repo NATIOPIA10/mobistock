@@ -18,6 +18,18 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       setSession(session);
       setIsLoading(false);
       
+      if (session) {
+        // Log login event (only if not already logged in this tab session)
+        const loggedIn = sessionStorage.getItem('mobistock_login_logged');
+        if (!loggedIn) {
+          supabase.from('security_logs').insert({
+            event: "User Login",
+            details: `Admin authenticated via ${session.user.email}`,
+            status: "success"
+          }).then(() => sessionStorage.setItem('mobistock_login_logged', 'true'));
+        }
+      }
+
       if (!session && pathname !== "/login") {
         router.push("/login");
       }

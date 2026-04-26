@@ -41,6 +41,9 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [transactionPin, setTransactionPin] = useState("");
+  const [requirePinForDelete, setRequirePinForDelete] = useState(false);
+  const [securityLogs, setSecurityLogs] = useState<any[]>([]);
 
   const handleUpdatePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
@@ -55,6 +58,14 @@ export default function Settings() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      
+      // Log Security Event
+      await supabase.from('security_logs').insert({
+        event: "Password Changed",
+        details: "Administrator successfully updated their login password.",
+        status: "success"
+      });
+
       alert("Password updated successfully! Next time you login, use your new password.");
       setNewPassword("");
       setConfirmPassword("");
@@ -114,7 +125,17 @@ export default function Settings() {
           setLowStockThreshold(data.low_stock_threshold || lowStockThreshold);
           setExchangeRate(data.exchange_rate || 1);
           setProductCategories(data.product_categories || productCategories);
+          setTransactionPin(data.transaction_pin || "");
+          setRequirePinForDelete(data.require_pin_for_delete ?? false);
         }
+
+        // Fetch Security Logs
+        const { data: logs } = await supabase
+          .from('security_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (logs) setSecurityLogs(logs);
     } catch (e) {
       console.error("Settings Fetch Error:", e);
     }
@@ -141,11 +162,20 @@ export default function Settings() {
           low_stock_threshold: lowStockThreshold,
           exchange_rate: exchangeRate,
           product_categories: productCategories,
+          transaction_pin: transactionPin,
+          require_pin_for_delete: requirePinForDelete,
           updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
       
+      // Log the change
+      await supabase.from('security_logs').insert({
+        event: "Settings Updated",
+        details: "Store configuration and security settings modified.",
+        status: "success"
+      });
+
       // Notify other components (like Sidebar) to refresh
       window.dispatchEvent(new Event('mobistock_settings_updated'));
       
@@ -503,6 +533,72 @@ export default function Settings() {
                         )}
                         {isUpdatingPassword ? 'Updating...' : 'Update Password'}
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-outline-variant/10">
+                    <h4 className="text-lg font-bold text-primary mb-4">Store Access PIN</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10">
+                        <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-3">4-Digit Security PIN</label>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="password" 
+                            maxLength={4}
+                            value={transactionPin}
+                            onChange={(e) => setTransactionPin(e.target.value.replace(/\D/g, ""))}
+                            placeholder="0000" 
+                            className="w-24 bg-surface-container-lowest rounded-xl py-3 px-4 text-center font-black tracking-[0.5em] text-lg text-primary outline-none focus:ring-2 focus:ring-primary/20 shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)]" 
+                          />
+                          <p className="text-xs text-on-surface-variant leading-relaxed">This PIN will be required for sensitive actions like deleting products or changing store settings.</p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <label className="flex items-center justify-between p-4 rounded-xl border border-outline-variant/20 hover:bg-surface-container-low cursor-pointer transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="material-symbols-outlined text-error">delete_forever</span>
+                            <div>
+                              <p className="font-bold text-sm text-on-surface">Require PIN for Delete</p>
+                              <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">High Security</p>
+                            </div>
+                          </div>
+                          <div className={`w-10 h-5 rounded-full flex items-center p-1 transition-colors ${requirePinForDelete ? 'bg-primary' : 'bg-surface-container-high'}`}>
+                            <motion.div animate={{ x: requirePinForDelete ? 20 : 0 }} className="w-3 h-3 bg-white rounded-full" />
+                          </div>
+                          <input type="checkbox" className="hidden" checked={requirePinForDelete} onChange={(e) => setRequirePinForDelete(e.target.checked)} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-outline-variant/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-bold text-primary">Recent Security Activity</h4>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full">Synced with Database</span>
+                    </div>
+                    <div className="space-y-3">
+                      {securityLogs.length > 0 ? securityLogs.map((log, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-surface-container-low/50 rounded-2xl border border-outline-variant/5">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-error-container text-error'}`}>
+                              <span className="material-symbols-outlined text-[20px]">
+                                {log.event.includes('Password') ? 'vpn_key' : log.event.includes('Login') ? 'login' : 'security'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-on-surface">{log.event}</p>
+                              <p className="text-xs text-on-surface-variant">{log.details}</p>
+                            </div>
+                          </div>
+                          <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-tighter">
+                            {new Date(log.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      )) : (
+                        <div className="text-center py-8 text-on-surface-variant/50 italic text-sm">
+                          No recent security events found.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
