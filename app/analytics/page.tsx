@@ -80,8 +80,19 @@ export default function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const { data: orders } = await supabase.from('orders').select('*, order_items(*)');
-      const { data: products } = await supabase.from('products').select('*');
+      // Calculate start date based on activeRange
+      let startDate = new Date();
+      if (activeRange === "7D") startDate.setDate(startDate.getDate() - 7);
+      else if (activeRange === "30D") startDate.setDate(startDate.getDate() - 30);
+      else if (activeRange === "90D") startDate.setDate(startDate.getDate() - 90);
+      else if (activeRange === "YTD") startDate = new Date(new Date().getFullYear(), 0, 1);
+      
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .gte('created_at', startDate.toISOString());
+
+      const { data: products } = await supabase.from('products').select('*, variants(*)');
 
       if (orders && products) {
         // 1. Calculate Metrics
@@ -89,7 +100,7 @@ export default function Analytics() {
         const avgValue = orders.length > 0 ? totalRev / orders.length : 0;
         
         setMetrics([
-          { label: "Total Revenue", value: formatCurrency(totalRev, settings), sub: "Lifetime Total", icon: "account_balance_wallet", color: "from-primary to-primary-container", textColor: "text-on-primary", subColor: "text-on-primary/70" },
+          { label: "Total Revenue", value: formatCurrency(totalRev, settings), sub: "Range Total", icon: "account_balance_wallet", color: "from-primary to-primary-container", textColor: "text-on-primary", subColor: "text-on-primary/70" },
           { label: "Avg. Order Value", value: formatCurrency(avgValue, settings), sub: "Global Average", icon: "shopping_cart", color: "bg-surface-container-lowest", textColor: "text-primary", subColor: "text-emerald-600" },
           { label: "Total Transactions", value: orders.length.toString(), sub: "Processed Orders", icon: "receipt_long", color: "bg-surface-container-lowest", textColor: "text-primary", subColor: "text-emerald-600" },
           { label: "Return Rate", value: "0.0%", sub: "Zero refunds yet", icon: "keyboard_return", color: "bg-surface-container-lowest", textColor: "text-primary", subColor: "text-emerald-600" },
@@ -111,21 +122,26 @@ export default function Analytics() {
         // 3. Best Sellers Calculation
         const productStats: Record<string, { sold: number, revenue: number }> = {};
         const variantToProduct: Record<string, string> = {};
+        
         products.forEach(p => {
-          p.variants?.forEach((v: any) => {
-            variantToProduct[v.id] = p.id;
-          });
+          if (p.variants) {
+            p.variants.forEach((v: any) => {
+              variantToProduct[v.id] = p.id;
+            });
+          }
         });
 
         orders.forEach(order => {
-          order.order_items?.forEach((item: any) => {
-            const productId = item.product_id || variantToProduct[item.variant_id];
-            if (productId) {
-              if (!productStats[productId]) productStats[productId] = { sold: 0, revenue: 0 };
-              productStats[productId].sold += Number(item.quantity || 0);
-              productStats[productId].revenue += Number(item.quantity || 0) * Number(item.price_at_sale || 0);
-            }
-          });
+          if (order.order_items) {
+            order.order_items.forEach((item: any) => {
+              const productId = variantToProduct[item.variant_id];
+              if (productId) {
+                if (!productStats[productId]) productStats[productId] = { sold: 0, revenue: 0 };
+                productStats[productId].sold += Number(item.quantity || 0);
+                productStats[productId].revenue += Number(item.quantity || 0) * Number(item.price_at_sale || 0);
+              }
+            });
+          }
         });
 
         const sortedBest = products
@@ -136,6 +152,7 @@ export default function Analytics() {
             revenue: productStats[p.id]?.revenue || 0,
             trend: "up"
           }))
+          .filter(p => p.sold > 0)
           .sort((a, b) => b.sold - a.sold)
           .slice(0, 5);
 
@@ -146,14 +163,16 @@ export default function Analytics() {
         let totalSalesVal = 0;
 
         orders.forEach(order => {
-          order.order_items?.forEach((item: any) => {
-            const productId = item.product_id || variantToProduct[item.variant_id];
-            const prod = products.find(p => p.id === productId);
-            const cat = prod?.category || "Other";
-            const rev = Number(item.quantity || 0) * Number(item.price_at_sale || 0);
-            categoryRev[cat] = (categoryRev[cat] || 0) + rev;
-            totalSalesVal += rev;
-          });
+          if (order.order_items) {
+            order.order_items.forEach((item: any) => {
+              const productId = variantToProduct[item.variant_id];
+              const prod = products.find(p => p.id === productId);
+              const cat = prod?.category || "Other";
+              const rev = Number(item.quantity || 0) * Number(item.price_at_sale || 0);
+              categoryRev[cat] = (categoryRev[cat] || 0) + rev;
+              totalSalesVal += rev;
+            });
+          }
         });
 
         // Fallback to product count if no orders yet
