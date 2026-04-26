@@ -13,10 +13,6 @@ const navLinks = [
   { href: "/orders", label: "Orders", icon: "receipt_long" },
 ];
 
-const bottomLinks = [
-  { href: "/settings", label: "Settings", icon: "settings" },
-  { href: "#", label: "Logout", icon: "logout" },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -99,16 +95,25 @@ export default function Sidebar() {
 
       {/* Bottom Nav */}
       <div className="flex flex-col gap-1 px-2 mt-4 pt-4 border-t border-outline-variant/15">
-        {bottomLinks.map(({ href, label, icon }) => (
-          <Link
-            key={label}
-            href={href}
-            className="flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
-          >
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>{icon}</span>
-            {label}
-          </Link>
-        ))}
+        <Link
+          href="/settings"
+          className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
+            pathname === "/settings" ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-lg" : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+          }`}
+        >
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: pathname === "/settings" ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
+          Settings
+        </Link>
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            router.push("/login");
+          }}
+          className="flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold text-error hover:bg-error/5 transition-all duration-200"
+        >
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>logout</span>
+          Logout
+        </button>
       </div>
     </aside>
   );
