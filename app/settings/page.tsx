@@ -29,6 +29,7 @@ export default function Settings() {
   const [timezone, setTimezone] = useState("Africa/Addis_Ababa");
   const [discountOptions, setDiscountOptions] = useState("0,5,10,15,20");
   const [exchangeRate, setExchangeRate] = useState(1); // Default 1 (1:1)
+  const [productCategories, setProductCategories] = useState("Smartphones, Tablets, Wearables, Accessories, Gaming");
 
   // Notification Settings State
   const [notifyEmail, setNotifyEmail] = useState(true);
