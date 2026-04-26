@@ -42,6 +42,64 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("⚠️ RESTORE WARNING: This will replace your current products and settings with the data in the backup file. Are you sure?")) {
+      event.target.value = '';
+      return;
+    }
+
+    setIsRestoring(true);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      if (!backup.products) throw new Error("Invalid backup file format.");
+
+      // 1. Wipe existing products (cascades to variants)
+      const { error: deleteError } = await supabase.from('products').delete().not('id', 'is', null);
+      if (deleteError) throw deleteError;
+
+      // 2. Restore Products & Variants
+      for (const p of backup.products) {
+        const { variants, ...productData } = p;
+        // Insert product
+        const { error: pError } = await supabase.from('products').insert(productData);
+        if (pError) throw pError;
+
+        // Insert variants if they exist
+        if (variants && variants.length > 0) {
+          const { error: vError } = await supabase.from('variants').insert(variants);
+          if (vError) throw vError;
+        }
+      }
+
+      // 3. Restore Settings if available
+      if (backup.settings) {
+        const { error: sError } = await supabase.from('store_settings').upsert({ id: 1, ...backup.settings });
+        if (sError) throw sError;
+      }
+
+      await supabase.from('security_logs').insert({
+        event: "Database Restored",
+        details: `System restored from backup: ${file.name}`,
+        status: "success"
+      });
+
+      alert("Database restored successfully! The page will now refresh.");
+      window.location.reload();
+    } catch (e: any) {
+      console.error("Restore Error:", e);
+      alert("Restore failed: " + e.message);
+    } finally {
+      setIsRestoring(false);
+      event.target.value = '';
+    }
+  };
   const [transactionPin, setTransactionPin] = useState("");
   const [requirePinForDelete, setRequirePinForDelete] = useState(false);
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
@@ -575,11 +633,33 @@ export default function Settings() {
                       <p className="text-sm text-on-surface-variant mb-8 leading-relaxed">Download a complete copy of your products, variants, and store settings as a JSON file for safe keeping.</p>
                       <button 
                         onClick={handleBackup}
-                        className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 mb-4"
                       >
                         <span className="material-symbols-outlined text-[20px]">download</span>
                         Download Backup
                       </button>
+
+                      <div className="relative">
+                        <input 
+                          type="file" 
+                          id="restore-upload" 
+                          className="hidden" 
+                          accept=".json"
+                          onChange={handleRestore}
+                        />
+                        <button 
+                          onClick={() => document.getElementById('restore-upload')?.click()}
+                          disabled={isRestoring}
+                          className="w-full py-4 bg-surface-container-highest text-primary rounded-2xl font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/5 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isRestoring ? (
+                            <span className="material-symbols-outlined animate-spin">refresh</span>
+                          ) : (
+                            <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                          )}
+                          {isRestoring ? 'Restoring...' : 'Restore from Backup'}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Reset Section */}
