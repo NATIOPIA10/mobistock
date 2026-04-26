@@ -396,23 +396,49 @@ export default function Inventory() {
               <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="col-span-2">
-                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Product Name</label>
-                    <input defaultValue={selectedProduct.name} className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" />
+                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Product Title</label>
+                    <input 
+                      value={editData.title} 
+                      onChange={(e) => setEditData({...editData, title: e.target.value})}
+                      className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Brand</label>
+                    <input 
+                      value={editData.brand} 
+                      onChange={(e) => setEditData({...editData, brand: e.target.value})}
+                      className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" 
+                    />
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">SKU</label>
-                    <input defaultValue={selectedProduct.sku} className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" />
+                    <input 
+                      value={editData.sku} 
+                      onChange={(e) => setEditData({...editData, sku: e.target.value})}
+                      className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" 
+                    />
                   </div>
-                  <div>
-                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Price ({settings?.currency || "ETB"})</label>
-                    <input defaultValue={selectedProduct.price.split(' ')[1] || selectedProduct.price} className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all" />
+                  <div className="col-span-2">
+                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Category</label>
+                    <select 
+                      value={editData.category} 
+                      onChange={(e) => setEditData({...editData, category: e.target.value})}
+                      className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all"
+                    >
+                      <option>Smartphones</option>
+                      <option>Tablets</option>
+                      <option>Wearables</option>
+                      <option>Accessories</option>
+                      <option>Gaming</option>
+                    </select>
                   </div>
                 </div>
               </div>
 
               <div className="p-8 bg-surface-container-low border-t border-outline-variant/10 flex gap-4">
                 <button onClick={() => setIsEditing(false)} className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-highest transition-colors">Discard</button>
-                <button onClick={() => setIsEditing(false)} className="flex-[2] py-4 rounded-full font-bold bg-primary text-on-primary shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                <button onClick={handleSaveEdit} className="flex-[2] py-4 rounded-full font-bold bg-primary text-on-primary shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined text-[20px]">save</span> Save Changes
                 </button>
               </div>
