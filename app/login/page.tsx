@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -19,22 +20,31 @@ export default function Login() {
     });
   }, [router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      router.push("/");
-      router.refresh();
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        alert("Success! Please check your email for the confirmation link (or just try logging in if email confirmation is disabled).");
+        setIsSignUp(false);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push("/");
+        router.refresh();
+      }
     } catch (err: any) {
-      setError(err.message || "Invalid credentials");
+      setError(err.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -64,10 +74,10 @@ export default function Login() {
               <span className="material-symbols-outlined text-on-primary text-4xl font-bold">shield_person</span>
             </div>
             <h1 className="text-3xl font-black tracking-tighter text-primary">MobiStock Pro</h1>
-            <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">The Digital Concierge</p>
+            <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">{isSignUp ? "Create Administrator Account" : "The Digital Concierge"}</p>
           </motion.div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2 text-left">
               <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Email Address</label>
               <input
@@ -112,12 +122,19 @@ export default function Login() {
                 <span className="material-symbols-outlined animate-spin">refresh</span>
               ) : (
                 <>
-                  Authenticate
+                  {isSignUp ? "Create Account" : "Authenticate"}
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </>
               )}
             </motion.button>
           </form>
+
+          <button 
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="mt-6 text-xs font-bold text-primary hover:underline"
+          >
+            {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
+          </button>
 
           <p className="mt-10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant opacity-40">
             Secure Administrator Access Only
