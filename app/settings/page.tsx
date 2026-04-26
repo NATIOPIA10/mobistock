@@ -10,6 +10,7 @@ const tabs = [
   { id: "regional", label: "Regional & Tax", icon: "public" },
   { id: "notifications", label: "Notifications", icon: "notifications" },
   { id: "security", label: "Security & Login", icon: "shield_lock" },
+  { id: "maintenance", label: "Maintenance", icon: "database" },
 ];
 
 export default function Settings() {
@@ -44,6 +45,68 @@ export default function Settings() {
   const [transactionPin, setTransactionPin] = useState("");
   const [requirePinForDelete, setRequirePinForDelete] = useState(false);
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleBackup = async () => {
+    try {
+      const { data: products } = await supabase.from('products').select('*, variants(*)');
+      const { data: settingsData } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        products: products || [],
+        settings: settingsData || {},
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mobistock_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert("Backup downloaded successfully! Keep this file safe.");
+    } catch (e: any) {
+      alert("Backup failed: " + e.message);
+    }
+  };
+
+  const handleReset = async () => {
+    if (requirePinForDelete) {
+      const pin = prompt("Enter Security PIN to reset all data:");
+      if (pin !== transactionPin) {
+        alert("Incorrect PIN. Reset aborted.");
+        return;
+      }
+    }
+
+    if (!confirm("⚠️ WARNING: This will PERMANENTLY DELETE all products and variants from your database. This action cannot be undone. Are you sure?")) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      // Deleting products will cascade delete variants due to the SQL constraint we added
+      const { error } = await supabase.from('products').delete().neq('id', 0); // Delete all
+      if (error) throw error;
+
+      await supabase.from('security_logs').insert({
+        event: "Database Reset",
+        details: "All products and variants were wiped by administrator.",
+        status: "success"
+      });
+
+      alert("Database reset successfully. All product data has been cleared.");
+      window.location.reload();
+    } catch (e: any) {
+      alert("Reset failed: " + e.message);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handleUpdatePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
@@ -480,6 +543,69 @@ export default function Settings() {
                          />
                          <span className="text-xs font-bold text-on-surface-variant/40">Units</span>
                       </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === "maintenance" && (
+                <motion.div
+                  key="maintenance"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-12"
+                >
+                  <div>
+                    <h3 className="text-xl font-bold text-primary mb-1">Maintenance & Tools</h3>
+                    <p className="text-sm text-on-surface-variant">Perform database backups and system resets.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Backup Section */}
+                    <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-outline-variant/10">
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+                        <span className="material-symbols-outlined text-3xl">cloud_download</span>
+                      </div>
+                      <h4 className="text-lg font-bold text-on-surface mb-2">Export Data Backup</h4>
+                      <p className="text-sm text-on-surface-variant mb-8 leading-relaxed">Download a complete copy of your products, variants, and store settings as a JSON file for safe keeping.</p>
+                      <button 
+                        onClick={handleBackup}
+                        className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">download</span>
+                        Download Backup
+                      </button>
+                    </div>
+
+                    {/* Reset Section */}
+                    <div className="bg-error-container/10 p-8 rounded-[2.5rem] border border-error/10">
+                      <div className="w-14 h-14 rounded-2xl bg-error/10 flex items-center justify-center text-error mb-6">
+                        <span className="material-symbols-outlined text-3xl">delete_forever</span>
+                      </div>
+                      <h4 className="text-lg font-bold text-error mb-2">Wipe All Product Data</h4>
+                      <p className="text-sm text-on-surface-variant mb-8 leading-relaxed">This will permanently delete every product and variant in your catalog. <span className="text-error font-bold">Use with extreme caution.</span></p>
+                      <button 
+                        onClick={handleReset}
+                        disabled={isResetting}
+                        className="w-full py-4 bg-error text-on-error rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-error/20 hover:shadow-error/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isResetting ? (
+                          <span className="material-symbols-outlined animate-spin">refresh</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[20px]">dangerous</span>
+                        )}
+                        {isResetting ? 'Resetting...' : 'Reset Database'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface-container rounded-2xl border border-outline-variant/20 flex gap-4 items-start">
+                    <span className="material-symbols-outlined text-primary">info</span>
+                    <div className="text-xs text-on-surface-variant leading-relaxed">
+                      <p className="font-bold text-primary uppercase tracking-widest mb-1">About System Resets</p>
+                      Resetting the database only removes Inventory data (Products and Variants). Your Sales History, Orders, and Settings will remain intact. If you have "Require PIN for Delete" enabled, you must enter your Security PIN to proceed.
                     </div>
                   </div>
                 </motion.div>
