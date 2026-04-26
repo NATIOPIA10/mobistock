@@ -70,7 +70,8 @@ export default function Inventory() {
             name: `${p.brand} ${p.title}`,
             category: p.category,
             status: totalStock === 0 ? "out-of-stock" : totalStock < 10 ? "low-stock" : "in-stock",
-            variants: p.variants.length,
+            variantCount: p.variants.length,
+            variants: p.variants,
             stock: totalStock,
             price: minPrice === maxPrice 
               ? formatCurrency(minPrice, settings) 
@@ -96,14 +97,16 @@ export default function Inventory() {
       title: product.title,
       brand: product.brand,
       sku: product.sku,
-      category: product.category || "Smartphones"
+      category: product.category || "Smartphones",
+      variants: product.variants.map((v: any) => ({ ...v }))
     });
     setIsEditing(true);
   };
 
   const handleSaveEdit = async () => {
     try {
-      const { error } = await supabase
+      // 1. Update Product
+      const { error: pError } = await supabase
         .from('products')
         .update({
           title: editData.title,
@@ -113,11 +116,21 @@ export default function Inventory() {
         })
         .eq('id', selectedProduct.id);
 
-      if (error) throw error;
+      if (pError) throw pError;
+
+      // 2. Update Variants Stock
+      for (const variant of editData.variants) {
+        const { error: vError } = await supabase
+          .from('variants')
+          .update({ stock: variant.stock })
+          .eq('id', variant.id);
+        
+        if (vError) throw vError;
+      }
 
       setIsEditing(false);
       fetchInventory();
-      alert("Product updated successfully!");
+      alert("Product and stock updated successfully!");
     } catch (e: any) {
       alert(`Error updating product: ${e.message}`);
     }
@@ -331,7 +344,7 @@ export default function Inventory() {
                   <div className="flex gap-8 items-center bg-surface-container-low px-6 py-4 rounded-lg w-full lg:w-auto justify-between lg:justify-start">
                     <div>
                       <p className="text-xs uppercase tracking-wider text-on-surface-variant font-semibold mb-1">Variants</p>
-                      <p className="text-lg font-bold text-primary">{item.variants}</p>
+                      <p className="text-lg font-bold text-primary">{item.variantCount}</p>
                     </div>
                     <div className="w-px h-10 bg-outline-variant/30"></div>
                     <div>
@@ -465,6 +478,55 @@ export default function Inventory() {
                       <option>Accessories</option>
                       <option>Gaming</option>
                     </select>
+                  </div>
+
+                  {/* Variant Stock Management */}
+                  <div className="col-span-2 border-t border-outline-variant/10 pt-6 mt-2">
+                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-4 ml-1">Inventory Levels (Variants)</label>
+                    <div className="space-y-3">
+                      {editData.variants?.map((v: any, idx: number) => (
+                        <div key={v.id} className="flex items-center justify-between bg-surface-container-low p-4 rounded-2xl border border-outline-variant/5">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-primary uppercase tracking-tight">
+                              {Object.values(v.options).join(" / ") || "Base Product"}
+                            </span>
+                            <span className="text-[10px] text-on-surface-variant font-mono">{v.sku}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => {
+                                const newVariants = [...editData.variants];
+                                newVariants[idx].stock = Math.max(0, newVariants[idx].stock - 1);
+                                setEditData({...editData, variants: newVariants});
+                              }}
+                              className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-error/10 hover:text-error transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">remove</span>
+                            </button>
+                            <input 
+                              type="number"
+                              value={v.stock}
+                              onChange={(e) => {
+                                const newVariants = [...editData.variants];
+                                newVariants[idx].stock = parseInt(e.target.value) || 0;
+                                setEditData({...editData, variants: newVariants});
+                              }}
+                              className="w-16 bg-surface-container-highest rounded-lg py-2 text-center text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                            />
+                            <button 
+                              onClick={() => {
+                                const newVariants = [...editData.variants];
+                                newVariants[idx].stock = newVariants[idx].stock + 1;
+                                setEditData({...editData, variants: newVariants});
+                              }}
+                              className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-tertiary/10 hover:text-tertiary transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">add</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
