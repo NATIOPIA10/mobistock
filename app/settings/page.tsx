@@ -37,6 +37,34 @@ export default function Settings() {
   const [notifyDailyReport, setNotifyDailyReport] = useState(false);
   const [lowStockThreshold, setLowStockThreshold] = useState(10);
 
+  // Security Settings State
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      alert("Password updated successfully! Next time you login, use your new password.");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      alert("Error updating password: " + e.message);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -442,21 +470,38 @@ export default function Settings() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Current Password</label>
-                      <input type="password" placeholder="••••••••" className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body" />
-                    </div>
                     <div>
                       <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">New Password</label>
-                      <input type="password" placeholder="••••••••" className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body" />
+                      <input 
+                        type="password" 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••" 
+                        className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body" 
+                      />
                     </div>
                     <div>
                       <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Confirm New Password</label>
-                      <input type="password" placeholder="••••••••" className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body" />
+                      <input 
+                        type="password" 
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••" 
+                        className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body" 
+                      />
                     </div>
                     <div className="md:col-span-2 mt-4">
-                      <button className="px-6 py-2.5 rounded-full font-bold bg-surface-container-highest text-on-surface hover:bg-surface-dim transition-colors">
-                        Update Password
+                      <button 
+                        onClick={handleUpdatePassword}
+                        disabled={isUpdatingPassword}
+                        className="px-8 py-3 rounded-full font-bold bg-primary text-on-primary shadow-xl shadow-primary/20 hover:opacity-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isUpdatingPassword ? (
+                          <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">lock_reset</span>
+                        )}
+                        {isUpdatingPassword ? 'Updating...' : 'Update Password'}
                       </button>
                     </div>
                   </div>
