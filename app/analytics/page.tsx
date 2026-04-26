@@ -175,17 +175,10 @@ export default function Analytics() {
           }
         });
 
-        // Fallback to product count if no orders yet
-        if (totalSalesVal === 0) {
-          products.forEach(p => {
-            categoryRev[p.category] = (categoryRev[p.category] || 0) + 1;
-            totalSalesVal += 1;
-          });
-        }
-
         setCategories(Object.entries(categoryRev).map(([name, val], idx) => ({
           name, 
           value: totalSalesVal > 0 ? Math.round((Number(val) / totalSalesVal) * 100) : 0, 
+          revenue: Number(val),
           color: [`var(--color-primary)`, `var(--color-secondary)`, `var(--color-tertiary-fixed)`, `#f59e0b`, `#10b981`][idx % 5]
         })));
       }
@@ -398,11 +391,19 @@ export default function Analytics() {
             <div className="grid grid-cols-2 gap-4">
               {categories.map((c) => (
                 <div key={c.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }}></div>
-                  <span className="text-xs font-bold text-on-surface-variant truncate max-w-[80px]">{c.name}</span>
-                  <span className="text-xs font-black text-primary ml-auto">{c.value}%</span>
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: c.color }}></div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-bold text-on-surface-variant truncate">{c.name}</span>
+                    <span className="text-[9px] font-black text-primary">{formatCurrency(c.revenue, settings)}</span>
+                  </div>
+                  <span className="text-xs font-black text-secondary ml-auto">{c.value}%</span>
                 </div>
               ))}
+              {categories.length === 0 && (
+                <div className="col-span-2 text-center py-10">
+                  <p className="text-xs text-on-surface-variant font-bold">No sales in this range</p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
