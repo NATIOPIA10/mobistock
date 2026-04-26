@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, convertAmount } from "@/lib/currency";
 
-type Product = { id: string; name: string; sku: string; price: number; stock: number; category: string; img: string; variantId?: string };
+type Product = { id: string; name: string; sku: string; price: number; maxPrice: number; stock: number; category: string; img: string; variantId?: string };
 type CartItem = { id: string; name: string; sku: string; price: number; qty: number; img: string; variantId?: string; taxExempt?: boolean };
 
 const categories = ["All", "Smartphones", "Accessories", "Wearables", "Tablets"];
