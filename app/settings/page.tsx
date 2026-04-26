@@ -90,15 +90,15 @@ export default function Settings() {
     setIsResetting(true);
     try {
       // 1. Delete all products (cascades to variants)
-      const { error: pError } = await supabase.from('products').delete().neq('id', 0);
+      const { error: pError } = await supabase.from('products').delete().not('id', 'is', null);
       if (pError) throw pError;
 
       // 2. Delete all orders (cascades to order_items)
-      const { error: oError } = await supabase.from('orders').delete().neq('id', 0);
+      const { error: oError } = await supabase.from('orders').delete().not('id', 'is', null);
       if (oError) throw oError;
 
       // 3. Delete all security logs
-      const { error: lError } = await supabase.from('security_logs').delete().neq('id', 0);
+      const { error: lError } = await supabase.from('security_logs').delete().not('id', 'is', null);
       if (lError) throw lError;
 
       alert("Full database reset successful. All products, sales history, and logs have been cleared.");
