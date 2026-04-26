@@ -324,6 +324,7 @@ export default function Inventory() {
                       <span className="bg-surface text-on-surface px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border border-outline-variant/20">
                         SKU: {item.sku}
                       </span>
+                      {item.status === "in-stock" || item.status === "active" ? (
                         <span className="bg-tertiary-fixed/20 text-on-tertiary-fixed px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-max mx-auto lg:mx-0 shadow-[0_0_15px_rgba(111,251,190,0.2)]">
                           <div className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></div> Good Stage
                         </span>
