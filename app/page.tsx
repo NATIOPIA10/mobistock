@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState({ todaySales: 0, totalRevenue: 0, totalProfit: 0 });
   const [bestSellers, setBestSellers] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [adminPhoto, setAdminPhoto] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBrf_bs_Dipvf-vLWdzzampJDmFNvCTRnXbE8OJ7vD8S6itF5C2DrXG5HF_ujutax2SzIbygEXHd86EPo1jAiQqiX6GJ-FWijbw7k5PULUIaNEEoyUjB_7g_oTeiFkaHZ2nhW4Cy8sfoZH2QE0zOiVgJzuxeAiGI6iI7QMvjiCZm4U6s6UljdssaYdhYsGdnWkkzMK3QKLnAC0qa48atYSdXhwKiBcEr2tUB32pCp0An7QtnIUD83qljFGpCfpC3ZccGozPHzm7Kok");
+  const [adminPhoto, setAdminPhoto] = useState<string | null>(null);
   const [showBadge, setShowBadge] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
@@ -42,7 +42,10 @@ export default function Dashboard() {
   const fetchSettings = async () => {
     try {
       const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
-      if (data) setSettings(data);
+      if (data) {
+        setSettings(data);
+        if (data.admin_photo) setAdminPhoto(data.admin_photo);
+      }
     } catch (e) {
       console.error("Dashboard Settings Error:", e);
     }
@@ -127,9 +130,7 @@ export default function Dashboard() {
         });
         setAlerts(newAlerts.slice(0, 3)); // Show top 3 alerts
       }
-      // 3. Fetch Profile Data
-      const savedPhoto = localStorage.getItem("mobistock_profile_img");
-      if (savedPhoto) setAdminPhoto(savedPhoto);
+      // 3. Profile data is now handled by fetchSettings
 
       // 4. Set Badge if there are alerts
       const lastRead = localStorage.getItem('mobistock_notifications_read_at');
@@ -188,7 +189,13 @@ export default function Dashboard() {
             {showBadge && <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-error rounded-full outline outline-2 outline-surface-container-lowest"></span>}
           </Link>
           <Link href="/profile">
-            <img alt="Admin" className="w-12 h-12 rounded-full object-cover shadow-[0_8px_16px_-4px_rgba(15,23,42,0.05)] ml-2 hover:opacity-80 transition-opacity" src={adminPhoto}/>
+            <div className="w-12 h-12 rounded-full overflow-hidden shadow-[0_8px_16px_-4px_rgba(15,23,42,0.05)] ml-2 hover:opacity-80 transition-opacity bg-primary/10 flex items-center justify-center">
+              {adminPhoto ? (
+                <img alt="Admin" className="w-full h-full object-cover" src={adminPhoto}/>
+              ) : (
+                <span className="material-symbols-outlined text-primary">person</span>
+              )}
+            </div>
           </Link>
         </div>
       </motion.div>
