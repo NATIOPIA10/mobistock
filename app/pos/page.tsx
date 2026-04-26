@@ -42,8 +42,7 @@ export default function POS() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*, variants(*)')
-        .eq('is_archived', false);
+        .select('*, variants(*)');
       
       if (error) throw error;
 

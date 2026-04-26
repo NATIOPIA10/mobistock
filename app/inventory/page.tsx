@@ -46,8 +46,7 @@ export default function Inventory() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*, variants(*)')
-        .eq('is_archived', false);
+        .select('*, variants(*)');
       
       if (error) throw error;
 
@@ -156,27 +155,27 @@ export default function Inventory() {
   };
 
   const handleDelete = async (sku: string) => {
-    if (confirm("This product has sales history. Would you like to Archive it instead? (It will be hidden from inventory and POS but kept in records)")) {
+    if (confirm("Are you sure you want to delete this product COMPLETELY from the database? This will also remove its variants.")) {
       try {
         const { error } = await supabase
           .from('products')
-          .update({ is_archived: true })
+          .delete()
           .eq('sku', sku);
 
         if (error) throw error;
 
         // Log the deletion
         await supabase.from('security_logs').insert({
-          event: "Product Archived",
-          details: `Product with SKU ${sku} was archived by admin.`,
+          event: "Product Deleted",
+          details: `Product with SKU ${sku} was permanently deleted by admin.`,
           status: "success"
         });
 
         setItems(items.filter(item => item.sku !== sku));
         setActiveMenuId(null);
-        alert("Product archived successfully.");
+        alert("Product deleted completely.");
       } catch (e: any) {
-        alert(`Error archiving product: ${e.message}`);
+        alert(`Error deleting product: ${e.message}`);
       }
     }
   };
