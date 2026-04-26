@@ -17,6 +17,7 @@ export default function NewProduct() {
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("Smartphones");
+  const [settings, setSettings] = useState<any>(null);
 
   // Derived categories from settings
   const dynamicCategories = settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Tablets", "Wearables", "Accessories", "Gaming"];
@@ -37,7 +38,6 @@ export default function NewProduct() {
   const [newOptionValue, setNewOptionValue] = useState("");
   const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
