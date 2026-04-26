@@ -60,9 +60,14 @@ export default function Settings() {
 
       if (!backup.products) throw new Error("Invalid backup file format.");
 
-      // 1. Wipe existing products (cascades to variants)
-      const { error: deleteError } = await supabase.from('products').delete().not('id', 'is', null);
-      if (deleteError) throw deleteError;
+      // 1. Wipe existing data
+      // Delete products (cascades to variants)
+      const { error: deletePError } = await supabase.from('products').delete().not('id', 'is', null);
+      if (deletePError) throw deletePError;
+
+      // Delete orders (cascades to order_items)
+      const { error: deleteOError } = await supabase.from('orders').delete().not('id', 'is', null);
+      if (deleteOError) throw deleteOError;
 
       // 2. Restore Products & Variants
       for (const p of backup.products) {
@@ -78,7 +83,17 @@ export default function Settings() {
         }
       }
 
-      // 3. Restore Settings if available
+      // 3. Restore Orders & Items
+      if (backup.orders && backup.orders.length > 0) {
+        const { error: oError } = await supabase.from('orders').insert(backup.orders);
+        if (oError) throw oError;
+      }
+      if (backup.order_items && backup.order_items.length > 0) {
+        const { error: iError } = await supabase.from('order_items').insert(backup.order_items);
+        if (iError) throw iError;
+      }
+
+      // 4. Restore Settings if available
       if (backup.settings) {
         const { error: sError } = await supabase.from('store_settings').upsert({ id: 1, ...backup.settings });
         if (sError) throw sError;
@@ -86,7 +101,7 @@ export default function Settings() {
 
       await supabase.from('security_logs').insert({
         event: "Database Restored",
-        details: `System restored from backup: ${file.name}`,
+        details: `System restored from backup: ${file.name}. Included ${backup.products.length} products and ${backup.orders?.length || 0} orders.`,
         status: "success"
       });
 
@@ -109,11 +124,34 @@ export default function Settings() {
     try {
       const { data: products } = await supabase.from('products').select('*, variants(*)');
       const { data: settingsData } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: orders } = await supabase.from('orders').select('*');
+      const { data: orderItems } = await supabase.from('order_items').select('*');
       
+      // Calculate Analytics
+      const today = new Date().toISOString().split('T')[0];
+      const completedOrders = orders?.filter(o => o.status === 'completed') || [];
+      
+      const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+      const todaySales = completedOrders
+        .filter(o => o.created_at.startsWith(today))
+        .reduce((sum, o) => sum + Number(o.total_amount), 0);
+      
+      const totalProfit = totalRevenue * 0.3; // Est. 30% profit logic
+      const totalUnitsSold = orderItems?.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+
       const backupData = {
         timestamp: new Date().toISOString(),
         products: products || [],
         settings: settingsData || {},
+        orders: orders || [],
+        order_items: orderItems || [],
+        analytics: {
+          todaySales,
+          totalRevenue,
+          totalProfit,
+          totalUnitsSold,
+          lastUpdated: new Date().toISOString()
+        }
       };
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -126,7 +164,7 @@ export default function Settings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert("Backup downloaded successfully! Keep this file safe.");
+      alert("Backup downloaded successfully! Sales history and analytics included.");
     } catch (e: any) {
       alert("Backup failed: " + e.message);
     }
