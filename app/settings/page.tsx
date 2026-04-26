@@ -101,10 +101,11 @@ export default function Settings() {
       const { error: lError } = await supabase.from('security_logs').delete().neq('id', 0);
       if (lError) throw lError;
 
-      alert("Full database reset successful. All products, sales history, and logs have been cleared. Store settings were preserved.");
+      alert("Full database reset successful. All products, sales history, and logs have been cleared.");
       window.location.reload();
     } catch (e: any) {
-      alert("Reset failed: " + e.message);
+      console.error("Full Reset Error:", e);
+      alert(`Reset failed: ${e.message || "Please check your Supabase permissions (RLS) or database constraints."}`);
     } finally {
       setIsResetting(false);
     }
