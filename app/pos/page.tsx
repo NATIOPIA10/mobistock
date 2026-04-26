@@ -9,8 +9,6 @@ import { formatCurrency, convertAmount } from "@/lib/currency";
 
 
 
-const categories = ["All Products", "Phones", "Tablets", "Wearables", "Accessories"];
-
 export default function POS() {
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
@@ -21,6 +19,9 @@ export default function POS() {
   const [detailProduct, setDetailProduct] = useState<any | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+
+  // Derived categories from settings
+  const categories = ["All Products", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Phones", "Tablets", "Wearables", "Accessories"])];
 
   useEffect(() => {
     setMounted(true);

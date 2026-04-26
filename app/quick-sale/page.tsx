@@ -8,8 +8,6 @@ import { formatCurrency, convertAmount } from "@/lib/currency";
 type Product = { id: string; name: string; sku: string; price: number; maxPrice: number; stock: number; category: string; img: string; variantId?: string };
 type CartItem = { id: string; name: string; sku: string; price: number; qty: number; img: string; variantId?: string; taxExempt?: boolean };
 
-const categories = ["All", "Smartphones", "Accessories", "Wearables", "Tablets"];
-
 const paymentMethods = [
   { id: "cash", label: "Cash", icon: "payments" },
   { id: "card", label: "Card", icon: "credit_card" },
@@ -28,6 +26,10 @@ export default function QuickSale() {
   const [ticketNo, setTicketNo] = useState("");
   const [note, setNote] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
+
+  // Derived categories from settings
+  const categories = ["All", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Accessories", "Wearables", "Tablets"])];
 
   useEffect(() => {
     setTicketNo(`#${Math.floor(8000 + Math.random() * 999)}-Q`);
@@ -35,8 +37,6 @@ export default function QuickSale() {
     fetchCatalog();
     fetchSettings();
   }, []);
-
-  const [settings, setSettings] = useState<any>(null);
 
   const fetchSettings = async () => {
     try {

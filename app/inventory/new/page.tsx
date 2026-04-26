@@ -17,6 +17,15 @@ export default function NewProduct() {
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("Smartphones");
+
+  // Derived categories from settings
+  const dynamicCategories = settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Tablets", "Wearables", "Accessories", "Gaming"];
+
+  useEffect(() => {
+    if (dynamicCategories.length > 0 && !dynamicCategories.includes(category)) {
+      setCategory(dynamicCategories[0]);
+    }
+  }, [settings]);
   const [image, setImage] = useState<string | null>(null);
 
   // Options & Variants
@@ -242,11 +251,9 @@ export default function NewProduct() {
                 <div>
                   <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Category</label>
                   <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body text-base">
-                    <option>Smartphones</option>
-                    <option>Tablets</option>
-                    <option>Wearables</option>
-                    <option>Accessories</option>
-                    <option>Gaming</option>
+                    {dynamicCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
               </div>

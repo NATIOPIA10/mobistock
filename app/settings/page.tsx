@@ -84,6 +84,7 @@ export default function Settings() {
           setNotifyDailyReport(data.notify_daily_report ?? notifyDailyReport);
           setLowStockThreshold(data.low_stock_threshold || lowStockThreshold);
           setExchangeRate(data.exchange_rate || 1);
+          setProductCategories(data.product_categories || productCategories);
         }
     } catch (e) {
       console.error("Settings Fetch Error:", e);
@@ -110,6 +111,7 @@ export default function Settings() {
           notify_daily_report: notifyDailyReport,
           low_stock_threshold: lowStockThreshold,
           exchange_rate: exchangeRate,
+          product_categories: productCategories,
           updated_at: new Date().toISOString()
         });
 
@@ -258,6 +260,16 @@ export default function Settings() {
                     <div className="md:col-span-2">
                       <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Store Address</label>
                       <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body resize-none" />
+                    </div>
+                    <div className="md:col-span-2 pt-4 border-t border-outline-variant/10">
+                      <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Product Categories</label>
+                      <input 
+                        value={productCategories} 
+                        onChange={(e) => setProductCategories(e.target.value)} 
+                        className="w-full bg-surface-container-lowest rounded-xl py-3 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container shadow-[inset_0_0_0_1px_rgba(198,198,205,0.3)] font-body"
+                        placeholder="Smartphones, Tablets, Wearables, Accessories..."
+                      />
+                      <p className="text-[10px] text-on-surface-variant mt-2 font-bold uppercase tracking-wider opacity-50">* Separate categories with commas. These will appear in POS and Inventory filters.</p>
                     </div>
                   </div>
                 </motion.div>

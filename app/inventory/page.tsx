@@ -472,11 +472,9 @@ export default function Inventory() {
                       onChange={(e) => setEditData({...editData, category: e.target.value})}
                       className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all"
                     >
-                      <option>Smartphones</option>
-                      <option>Tablets</option>
-                      <option>Wearables</option>
-                      <option>Accessories</option>
-                      <option>Gaming</option>
+                      {(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Tablets", "Wearables", "Accessories", "Gaming"]).map((cat: string) => (
+                        <option key={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
