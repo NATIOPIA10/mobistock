@@ -21,13 +21,15 @@ interface CartSidebarProps {
   onUpdateQty: (sku: string, newQty: number) => void;
   onUpdatePrice: (sku: string, newPrice: number) => void;
   onUpdateDiscount: (value: number) => void;
+  customerName: string;
+  onUpdateCustomerName: (name: string) => void;
   onToggleTax: (sku: string) => void;
   onRemove: (sku: string) => void;
   onClear: () => void;
   onCharge: () => void;
 }
 
-export default function CartSidebar({ cart, settings, discount, onUpdateQty, onUpdatePrice, onUpdateDiscount, onToggleTax, onRemove, onClear, onCharge }: CartSidebarProps) {
+export default function CartSidebar({ cart, settings, discount, onUpdateQty, onUpdatePrice, onUpdateDiscount, customerName, onUpdateCustomerName, onToggleTax, onRemove, onClear, onCharge }: CartSidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [ticketNo, setTicketNo] = useState("");
 
@@ -68,6 +70,19 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
             <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
           </button>
         )}
+      </div>
+
+      <div className="px-8 pb-4">
+        <div className="relative group">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-lg group-focus-within:text-primary transition-colors">person</span>
+          <input 
+            type="text"
+            value={customerName}
+            onChange={(e) => onUpdateCustomerName(e.target.value)}
+            placeholder="Customer Name (Optional)"
+            className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-primary outline-none ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/20 transition-all"
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar">

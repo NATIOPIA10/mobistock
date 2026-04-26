@@ -19,6 +19,7 @@ export default function POS() {
   const [detailProduct, setDetailProduct] = useState<any | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+  const [customerName, setCustomerName] = useState("");
 
   // Derived categories from settings
   const categories = ["All Products", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Phones", "Tablets", "Wearables", "Accessories"])];
@@ -174,7 +175,7 @@ export default function POS() {
         .from('orders')
         .insert({
           total_amount: totalETB,
-          customer_name: "Walk-in Customer",
+          customer_name: customerName || "Walk-in Customer",
           payment_method: "Cash",
           status: "completed",
           currency: settings?.currency || "ETB",
@@ -220,6 +221,7 @@ export default function POS() {
 
       // 4. Clear cart and refresh
       setCart([]);
+      setCustomerName("");
       setShowReceipt(false);
       fetchProducts(); // Refresh stock labels
       alert("Order synced to cloud database!");
@@ -316,6 +318,8 @@ export default function POS() {
         onUpdateQty={handleUpdateQty} 
         onUpdatePrice={handleUpdatePrice}
         onUpdateDiscount={setDiscount}
+        customerName={customerName}
+        onUpdateCustomerName={setCustomerName}
         onToggleTax={handleToggleTax}
         onRemove={handleRemoveItem}
         onClear={handleClearCart}
