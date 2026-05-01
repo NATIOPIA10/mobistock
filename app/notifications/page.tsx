@@ -99,8 +99,11 @@ export default function Notifications() {
           </div>
           <button 
             onClick={() => {
-              setAlerts([]);
+              const stockAlertsCount = alerts.filter(a => a.id.startsWith('stock-')).length;
               localStorage.setItem('mobistock_notifications_read_at', new Date().toISOString());
+              localStorage.setItem('mobistock_last_alert_count', stockAlertsCount.toString());
+              
+              setAlerts([]);
               window.dispatchEvent(new Event('mobistock_notifications_read'));
               alert("All notifications marked as read.");
             }}

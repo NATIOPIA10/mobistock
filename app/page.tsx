@@ -133,13 +133,20 @@ export default function Dashboard() {
       // 3. Profile data is now handled by fetchSettings
 
       // 4. Set Badge if there are alerts
-      const lastRead = localStorage.getItem('mobistock_notifications_read_at');
-      if (lastRead && newAlerts.length > 0) {
-        // Only show badge if there's a NEW alert after lastRead
-        // For now, since low stock is persistent, we'll just hide it if they clicked mark all as read recently
-        setShowBadge(false);
+      const lastReadStr = localStorage.getItem('mobistock_notifications_read_at');
+      const lastAlertCount = parseInt(localStorage.getItem('mobistock_last_alert_count') || "0");
+      
+      const latestOrder = ordersData && ordersData.length > 0 
+        ? [...ordersData].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] 
+        : null;
+
+      if (!lastReadStr) {
+        setShowBadge(newAlerts.length > 0 || latestOrder != null);
       } else {
-        setShowBadge(newAlerts.length > 0);
+        const lastRead = new Date(lastReadStr);
+        const hasNewOrder = latestOrder ? new Date(latestOrder.created_at) > lastRead : false;
+        const hasNewStockAlert = newAlerts.length > lastAlertCount;
+        setShowBadge(hasNewOrder || hasNewStockAlert);
       }
 
     } catch (e) {
