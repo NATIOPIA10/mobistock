@@ -71,7 +71,8 @@ export default function Settings() {
 
       // 2. Restore Products & Variants
       for (const p of backup.products) {
-        const { variants, ...productData } = p;
+        // Exclude extra computed fields added in the new backup format
+        const { variants, price_summary, total_stock, ...productData } = p;
         // Insert product
         const { error: pError } = await supabase.from('products').insert(productData);
         if (pError) throw pError;
@@ -126,6 +127,7 @@ export default function Settings() {
       const { data: settingsData } = await supabase.from('store_settings').select('*').eq('id', 1).single();
       const { data: orders } = await supabase.from('orders').select('*');
       const { data: orderItems } = await supabase.from('order_items').select('*');
+      const { data: logs } = await supabase.from('security_logs').select('*');
       
       // Calculate Analytics
       const today = new Date().toISOString().split('T')[0];
@@ -138,18 +140,97 @@ export default function Settings() {
       
       const totalProfit = totalRevenue * 0.3; // Est. 30% profit logic
       const totalUnitsSold = orderItems?.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+      const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
+
+      // Best Sellers & Category Sales
+      const productStats: Record<string, { sold: number, revenue: number }> = {};
+      const categoryRev: Record<string, number> = {};
+      const variantToProduct: Record<string, any> = {};
+      
+      if (products) {
+        products.forEach(p => {
+          if (p.variants) {
+            p.variants.forEach((v: any) => {
+              variantToProduct[v.id] = p;
+            });
+          }
+        });
+      }
+
+      if (orderItems) {
+        orderItems.forEach((item: any) => {
+          const product = variantToProduct[item.variant_id];
+          if (product) {
+            if (!productStats[product.id]) productStats[product.id] = { sold: 0, revenue: 0 };
+            const qty = Number(item.quantity || 0);
+            const rev = qty * Number(item.price_at_sale || 0);
+            productStats[product.id].sold += qty;
+            productStats[product.id].revenue += rev;
+            
+            const cat = product.category || "Other";
+            categoryRev[cat] = (categoryRev[cat] || 0) + rev;
+          }
+        });
+      }
+
+      const bestSellers = products ? products
+        .map(p => ({
+          name: p.title,
+          sku: p.sku,
+          sold: productStats[p.id]?.sold || 0,
+          revenue: productStats[p.id]?.revenue || 0,
+        }))
+        .filter(p => p.sold > 0)
+        .sort((a, b) => b.sold - a.sold) : [];
+
+      const salesByCategory = Object.entries(categoryRev).map(([name, revenue]) => ({
+        name,
+        revenue
+      })).sort((a, b) => b.revenue - a.revenue);
+
+      // Daily Revenue
+      const dailyRevenue = completedOrders.reduce((acc: any, o) => {
+        const date = o.created_at.split('T')[0];
+        acc[date] = (acc[date] || 0) + Number(o.total_amount);
+        return acc;
+      }, {});
+
+      // Calculate Product Pricing
+      const formattedProducts = (products || []).map(p => {
+        const prices = p.variants?.map((v: any) => v.price) || [0];
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const priceString = minPrice === maxPrice ? minPrice.toString() : `${minPrice} - ${maxPrice}`;
+        const totalStock = p.variants?.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) || 0;
+        
+        return {
+          ...p,
+          price_summary: priceString,
+          total_stock: totalStock
+        };
+      });
 
       const backupData = {
         timestamp: new Date().toISOString(),
-        products: products || [],
+        products: formattedProducts,
         settings: settingsData || {},
         orders: orders || [],
         order_items: orderItems || [],
+        security_logs: logs || [],
         analytics: {
-          todaySales,
-          totalRevenue,
-          totalProfit,
-          totalUnitsSold,
+          metrics: {
+            todaySales,
+            totalRevenue,
+            totalProfit,
+            totalUnitsSold,
+            avgOrderValue,
+            totalOrders: completedOrders.length
+          },
+          reports: {
+            bestSellers,
+            salesByCategory,
+            dailyRevenue
+          },
           lastUpdated: new Date().toISOString()
         }
       };
@@ -164,7 +245,7 @@ export default function Settings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert("Backup downloaded successfully! Sales history and analytics included.");
+      alert("Backup downloaded successfully! Full products, pricing, reports, and analytics included.");
     } catch (e: any) {
       alert("Backup failed: " + e.message);
     }
