@@ -335,7 +335,7 @@ export default function QuickSale() {
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-            className="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden relative max-h-[300px] overflow-y-auto"
+            className="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden relative max-h-[900px] overflow-y-auto p-4 space-y-4"
           >
             <div className="p-4 border-b border-outline-variant/10">
               <h3 className="text-lg font-bold text-primary">Order Summary</h3>
