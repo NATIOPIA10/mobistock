@@ -177,13 +177,18 @@ export default function Settings() {
       // Ensure SKU is a non-empty trimmed string for variants
       if (table === 'variants') {
         records.forEach((rec, idx) => {
-          // If SKU is missing, empty, null, or not a string, generate one
-          if (!rec.sku || rec.sku === '' || typeof rec.sku !== 'string') {
+          // If SKU is missing, empty, null string, or not a string, generate one
+          if (!rec.sku || rec.sku === '' || rec.sku === 'null' || typeof rec.sku !== 'string') {
             const base = rec.product_id ? `P${rec.product_id}` : 'PROD';
             rec.sku = `${base}_VAR${idx + 1}`;
           }
           // Trim whitespace and ensure string type
           rec.sku = String(rec.sku).trim();
+          // After trimming, if empty, generate again
+          if (!rec.sku) {
+            const base = rec.product_id ? `P${rec.product_id}` : 'PROD';
+            rec.sku = `${base}_VAR${idx + 1}`;
+          }
         });
       }
 
