@@ -121,6 +121,72 @@ export default function Settings() {
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
   const [isResetting, setIsResetting] = useState(false);
 
+  const [isImportingProducts, setIsImportingProducts] = useState(false);
+  const [isImportingVariants, setIsImportingVariants] = useState(false);
+
+  const parseCSV = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    
+    return lines.slice(1).map(line => {
+      // Split by comma, respecting quotes
+      const values = [];
+      let inQuotes = false;
+      let currentVal = '';
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"' && line[i+1] === '"') {
+          currentVal += '"'; i++; // skip escaped quote
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(currentVal);
+          currentVal = '';
+        } else {
+          currentVal += char;
+        }
+      }
+      values.push(currentVal); // push last value
+
+      const row: any = {};
+      headers.forEach((header, i) => {
+        let val: any = (values[i] || '').trim();
+        if (val.startsWith('{') && val.endsWith('}')) {
+          try { val = JSON.parse(val); } catch(e) {}
+        } else if (!isNaN(Number(val)) && val !== '') {
+          val = Number(val);
+        }
+        row[header] = val;
+      });
+      return row;
+    });
+  };
+
+  const handleImportCSV = async (event: any, table: 'products' | 'variants') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (table === 'products') setIsImportingProducts(true);
+    else setIsImportingVariants(true);
+
+    try {
+      const text = await file.text();
+      const records = parseCSV(text);
+      if (records.length === 0) throw new Error("CSV is empty or invalid format.");
+
+      const { error } = await supabase.from(table).insert(records);
+      if (error) throw error;
+
+      alert(`${table.charAt(0).toUpperCase() + table.slice(1)} imported successfully!`);
+    } catch (e: any) {
+      alert(`Import failed: ${e.message}`);
+    } finally {
+      if (table === 'products') setIsImportingProducts(false);
+      else setIsImportingVariants(false);
+      event.target.value = '';
+    }
+  };
+
   const handleBackup = async () => {
     try {
       const { data: products } = await supabase.from('products').select('*, variants(*)');
@@ -800,6 +866,49 @@ export default function Settings() {
                         )}
                         {isResetting ? 'Resetting...' : 'Reset Database'}
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-outline-variant/10">
+                    <h4 className="text-lg font-bold text-primary mb-4">Bulk Data Import (CSV)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10">
+                        <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-3">1. Import Products</label>
+                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: sku, brand, title, category</p>
+                        <input 
+                          type="file" 
+                          id="import-products" 
+                          className="hidden" 
+                          accept=".csv"
+                          onChange={(e) => handleImportCSV(e, 'products')}
+                        />
+                        <button 
+                          onClick={() => document.getElementById('import-products')?.click()}
+                          disabled={isImportingProducts}
+                          className="w-full py-3 bg-surface-container-highest text-primary rounded-xl font-bold border border-primary/20 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isImportingProducts ? 'Importing...' : 'Upload Products CSV'}
+                        </button>
+                      </div>
+
+                      <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10">
+                        <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-3">2. Import Variants</label>
+                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: product_id, price, stock, options</p>
+                        <input 
+                          type="file" 
+                          id="import-variants" 
+                          className="hidden" 
+                          accept=".csv"
+                          onChange={(e) => handleImportCSV(e, 'variants')}
+                        />
+                        <button 
+                          onClick={() => document.getElementById('import-variants')?.click()}
+                          disabled={isImportingVariants}
+                          className="w-full py-3 bg-surface-container-highest text-primary rounded-xl font-bold border border-primary/20 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isImportingVariants ? 'Importing...' : 'Upload Variants CSV'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
