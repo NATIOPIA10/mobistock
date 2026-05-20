@@ -130,7 +130,7 @@ export default function Settings() {
     
     return lines.slice(1).map(line => {
       // Split by comma, respecting quotes
-      const values = [];
+      const values: string[] = [];
       let inQuotes = false;
       let currentVal = '';
       for (let i = 0; i < line.length; i++) {
