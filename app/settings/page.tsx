@@ -893,7 +893,7 @@ export default function Settings() {
 
                       <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10">
                         <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-3">2. Import Variants</label>
-                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: product_id, price, stock, options</p>
+                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: product_id, sku, price, stock, options</p>
                         <input 
                           type="file" 
                           id="import-variants" 
