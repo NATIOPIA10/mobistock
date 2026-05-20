@@ -54,7 +54,7 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
   const total = subtotal - discountAmt + tax;
 
   return (
-    <aside className="hidden lg:flex w-[420px] bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex-col relative overflow-hidden flex-shrink-0 border border-outline-variant/10">
+    <aside className="hidden lg:flex w-[420px] bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex-col relative overflow-hidden flex-shrink-0 border border-outline-variant/10 max-h-[900px] overflow-y-auto">
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary-container to-primary opacity-80 z-20"></div>
       
       <div className="p-8 pb-4 flex justify-between items-start bg-surface-container-lowest z-10">
@@ -85,7 +85,7 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar max-h-[900px]">
         <AnimatePresence mode="popLayout">
           {cart.length === 0 ? (
             <motion.div 

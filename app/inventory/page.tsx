@@ -20,7 +20,7 @@ export default function Inventory() {
   const [settings, setSettings] = useState<any>(null);
 
   // Edit State
-  const [editData, setEditData] = useState<any>({ title: "", brand: "", sku: "", category: "" });
+  const [editData, setEditData] = useState<any>({ title: "", brand: "", sku: "", category: "", imageFile: null });
 
   useEffect(() => {
     setMounted(true);
@@ -106,14 +106,42 @@ export default function Inventory() {
 
   const handleSaveEdit = async () => {
     try {
-      // 1. Update Product
+      // 0. Upload new image if provided
+      let imageUrl = selectedProduct.image_url;
+      if (editData.imageFile) {
+        // Ensure the storage bucket exists (create if missing)
+        const { error: bucketErr } = await supabase.storage.createBucket('product_images', { public: true });
+        if (bucketErr && !bucketErr.message?.includes('already exists')) {
+          throw bucketErr;
+        }
+        const filePath = `${editData.sku || selectedProduct.sku}/${Date.now()}_${editData.imageFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('product_images')
+          .upload(filePath, editData.imageFile);
+        if (uploadError) {
+          if (uploadError.message?.includes('Bucket not found')) {
+            alert('Image bucket "product_images" does not exist. Please create it in Supabase storage with public read access.');
+          }
+          throw uploadError;
+        }
+        const { data: publicData } = supabase.storage.from('product_images').getPublicUrl(filePath);
+        imageUrl = publicData.publicUrl;
+      }
+
+      // 1. Update Product (including image_url if changed)
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
       const { error: pError } = await supabase
         .from('products')
         .update({
           title: editData.title,
           brand: editData.brand,
           sku: editData.sku,
-          category: editData.category
+          category: editData.category,
+          image_url: imageUrl,
+          owner_id: userId,
         })
         .eq('id', selectedProduct.id);
 
@@ -490,13 +518,31 @@ export default function Inventory() {
                     <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Category</label>
                     <select 
                       value={editData.category} 
-                      onChange={(e) => setEditData({...editData, category: e.target.value})}
+                      onChange={(e) => setEditData({ ...editData, category: e.target.value })}
                       className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all"
                     >
                       {(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Tablets", "Wearables", "Accessories", "Gaming"]).map((cat: string) => (
                         <option key={cat}>{cat}</option>
                       ))}
                     </select>
+                  </div>
+                  {/* Product Image Upload */}
+                  <div className="col-span-2">
+                    <label className="block text-xs uppercase tracking-widest font-black text-on-surface-variant mb-2 ml-1">Product Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setEditData({ ...editData, imageFile: file });
+                      }}
+                      className="w-full bg-surface-container-low rounded-2xl py-2 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all"
+                    />
+                    {editData.imageFile && (
+                      <p className="mt-2 text-sm text-on-surface-variant">
+                        Selected: {editData.imageFile.name}
+                      </p>
+                    )}
                   </div>
 
                   {/* Variant Stock Management */}

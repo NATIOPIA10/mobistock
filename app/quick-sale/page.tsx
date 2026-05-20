@@ -325,26 +325,25 @@ export default function QuickSale() {
             </div>
 
             {/* Sale Note */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full bg-surface-container-lowest rounded-2xl p-4 text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:ring-2 focus:ring-secondary-container shadow-sm resize-none text-sm" placeholder="Add a note for this sale (optional)..." />
             </motion.div>
           </div>
 
-          {/* RIGHT: Order Summary */}
+          {/* RIGHT: Order Summary (compact) */}
           <motion.aside
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
-            className="bg-surface-container-lowest rounded-3xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.1)] flex flex-col overflow-hidden relative"
+            transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+            className="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden relative max-h-[300px] overflow-y-auto"
           >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary-container via-primary to-secondary-container opacity-40" />
-            <div className="p-6 border-b border-outline-variant/10">
-              <h3 className="text-xl font-bold text-primary">Order Summary</h3>
+            <div className="p-4 border-b border-outline-variant/10">
+              <h3 className="text-lg font-bold text-primary">Order Summary</h3>
               <p className="text-xs text-on-surface-variant mt-0.5">{cart.length} item{cart.length !== 1 ? "s" : ""} in cart</p>
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[300px]">
               <AnimatePresence>
                 {cart.length === 0 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-12 text-on-surface-variant">
@@ -361,24 +360,24 @@ export default function QuickSale() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20, height: 0 }}
                     transition={{ duration: 0.25 }}
-                    className="bg-surface-container-low rounded-2xl p-3 flex items-center gap-3"
+                    className="bg-surface-container-low rounded-md p-2 flex items-center gap-2"
                   >
-                    <img alt={item.name} className="w-12 h-12 object-contain bg-white rounded-lg p-1 shadow-sm shrink-0" src={item.img} />
+                    <img alt={item.name} className="w-10 h-10 object-contain bg-white rounded-lg p-0.5 shadow-sm shrink-0" src={item.img} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-primary truncate">{item.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold text-on-surface-variant/40">{currency}</span>
+                          <span className="text-[9px] font-bold text-on-surface-variant/40">{currency}</span>
                           <input 
                             type="number"
                             value={convertAmount(item.price, settings)}
                             onChange={(e) => updatePrice(item.id, (parseFloat(e.target.value) || 0) * (settings?.currency !== 'ETB' ? (settings?.exchange_rate || 1) : 1))}
-                            className="w-16 bg-transparent text-xs font-bold text-primary outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 rounded px-0.5"
+                            className="w-12 bg-transparent text-xs font-bold text-primary outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 rounded px-0.5"
                           />
                         </div>
                         <button 
                           onClick={() => toggleTax(item.id)}
-                          className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded transition-all ${item.taxExempt ? 'bg-surface-container-highest text-on-surface-variant/30' : 'bg-secondary-container/40 text-secondary'}`}
+                          className={`text-[8px] font-black uppercase px-1 py-0.5 rounded transition-all ${item.taxExempt ? 'bg-surface-container-highest text-on-surface-variant/30' : 'bg-secondary-container/40 text-secondary'}`}
                         >
                           {item.taxExempt ? 'No Tax' : 'Tax'}
                         </button>
