@@ -126,7 +126,7 @@ export default function Settings() {
 
   const parseCSV = (text: string) => {
     const lines = text.split('\n').filter(line => line.trim().length > 0);
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
     
     return lines.slice(1).map(line => {
       // Split by comma, respecting quotes
@@ -174,6 +174,31 @@ export default function Settings() {
       const records = parseCSV(text);
       if (records.length === 0) throw new Error("CSV is empty or invalid format.");
 
+      // Ensure SKU is a non-empty trimmed string for variants
+      if (table === 'variants') {
+        records.forEach((rec, idx) => {
+          // If SKU is missing, empty, null, or not a string, generate one
+          if (!rec.sku || rec.sku === '' || typeof rec.sku !== 'string') {
+            const base = rec.product_id ? `P${rec.product_id}` : 'PROD';
+            rec.sku = `${base}_VAR${idx + 1}`;
+          }
+          // Trim whitespace and ensure string type
+          rec.sku = String(rec.sku).trim();
+        });
+      }
+
+      // ----- Variant-specific validation -----
+      if (table === 'variants') {
+        const missingSkuRows: number[] = [];
+        records.forEach((rec, idx) => {
+          // After the generation step, sku should never be falsy
+          if (!rec.sku) missingSkuRows.push(idx + 2);
+        });
+        if (missingSkuRows.length) {
+          throw new Error(`Missing SKU in rows: ${missingSkuRows.join(', ')}`);
+        }
+      }
+
       const { error } = await supabase.from(table).insert(records);
       if (error) throw error;
 
@@ -186,7 +211,6 @@ export default function Settings() {
       event.target.value = '';
     }
   };
-
   const handleBackup = async () => {
     try {
       const { data: products } = await supabase.from('products').select('*, variants(*)');
