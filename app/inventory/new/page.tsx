@@ -165,7 +165,8 @@ export default function NewProduct() {
         return;
       }
 
-      // 1. Insert Product
+      // 1. Insert Product (including authenticated owner)
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: productData, error: productError } = await supabase
         .from('products')
         .insert({
@@ -173,7 +174,8 @@ export default function NewProduct() {
           title: name,
           brand,
           category,
-          image_url: image || "https://lh3.googleusercontent.com/aida-public/AB6AXuBQWZybuEdvsnKkag-7xAD3G4ra-ZSfUx2RTh_XBnxjthRf8oVm-u-Ae5U8LZpw1Ghjgwv3AZsM-TLeEsujzRwH4tuZh-1X9oq5gH5BMURnOqMgRCF0Hb4b0cAXDxSaGO5eBT8XWldo8GhZFRsM2-9pX2-7K_fZxANevdE8QQ42YKxbuMTNDbW6c8na8AsDqxhiz2Ce9-row3moJAWrYQWD8PVe6-spA4aUNRfn-1q-WvboUAvz1zoeOuGxqckYUwWfs91gFpFRZgU"
+          image_url: image || "https://lh3.googleusercontent.com/aida-public/AB6AXuBQWZybuEdvsnKkag-7xAD3G4ra-ZSfUx2RTh_XBnxjthRf8oVm-u-Ae5U8LZpw1Ghjgwv3AZsM-TLeEsujzRwH4tuZh-1X9oq5gH5BMURnOqMgRCF0Hb4b0cAXDxSaGO5eBT8XWldo8GhZFRsM2-9pX2-7K_fZxANevdE8QQ42YKxbuMTNDbW6c8na8AsDqxhiz2Ce9-row3moJAWrYQWD8PVe6-spA4aUNRfn-1q-WvboUAvz1zoeOuGxqckYUwWfs91gFpFRZgU",
+          owner_id: user?.id,
         })
         .select()
         .single();
