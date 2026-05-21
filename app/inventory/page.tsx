@@ -105,6 +105,9 @@ export default function Inventory() {
   };
 
   const handleSaveEdit = async () => {
+    // Get current user for RLS
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
     try {
       // 0. Upload new image if provided
       let imageUrl = selectedProduct.image_url;
@@ -138,7 +141,7 @@ export default function Inventory() {
           sku: editData.sku,
           category: editData.category,
           image_url: imageUrl,
-          // owner_id omitted to satisfy Row Level Security policies
+          owner_id: userId,
         })
         .eq('id', selectedProduct.id);
 
