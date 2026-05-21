@@ -44,9 +44,13 @@ export default function Inventory() {
 
   const fetchInventory = async () => {
     try {
+      // Get current user for RLS filtering
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
       const { data, error } = await supabase
         .from('products')
-        .select('*, variants(*)');
+        .select('*, variants(*)')
+        .eq('owner_id', userId);
       
       if (error) throw error;
 
@@ -55,11 +59,13 @@ export default function Inventory() {
         let lowS = 0;
 
         const formatted = data.map((p: any) => {
-          const totalStock = p.variants.reduce((sum: number, v: any) => sum + v.stock, 0);
-          const minPrice = Math.min(...p.variants.map((v: any) => v.price));
-          const maxPrice = Math.max(...p.variants.map((v: any) => v.price));
+          const variants = p.variants || [];
+          const totalStock = variants.reduce((sum: number, v: any) => sum + v.stock, 0);
+          const prices = variants.map((v: any) => v.price);
+          const minPrice = prices.length ? Math.min(...prices) : 0;
+          const maxPrice = prices.length ? Math.max(...prices) : 0;
           
-          totalVal += p.variants.reduce((sum: number, v: any) => sum + (v.stock * v.price), 0);
+          totalVal += variants.reduce((sum: number, v: any) => sum + (v.stock * v.price), 0);
           const threshold = settings?.low_stock_threshold || 10;
           if (totalStock > 0 && totalStock < threshold) lowS++;
 
@@ -71,8 +77,8 @@ export default function Inventory() {
             name: `${p.brand} ${p.title}`,
             category: p.category,
             status: totalStock === 0 ? "out-of-stock" : totalStock < (settings?.low_stock_threshold || 10) ? "low-stock" : "in-stock",
-            variantCount: p.variants.length,
-            variants: p.variants,
+            variantCount: variants.length,
+            variants: variants,
             stock: totalStock,
             price: minPrice === maxPrice 
               ? formatCurrency(minPrice, settings) 

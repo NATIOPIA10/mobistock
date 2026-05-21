@@ -195,7 +195,7 @@ export default function NewProduct() {
 
       const { error: variantsError } = await supabase
         .from('variants')
-        .insert(variantsToInsert);
+        .upsert(variantsToInsert, { onConflict: 'sku' });
 
       if (variantsError) throw variantsError;
 
