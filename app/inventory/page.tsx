@@ -36,9 +36,18 @@ export default function Inventory() {
   const fetchSettings = async () => {
     try {
       const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
-      if (data) setSettings(data);
+      if (data) {
+        setSettings(data);
+        // Ensure inventory is fetched after settings are set
+        await fetchInventory();
+      } else {
+        // No settings found, still fetch inventory with defaults
+        await fetchInventory();
+      }
     } catch (e) {
       console.error("Inventory Settings Error:", e);
+      // Fallback: fetch inventory anyway
+      await fetchInventory();
     }
   };
 
