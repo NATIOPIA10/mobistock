@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
-import "./globals.css";
+// Manrope import removed (handled via Google Fonts link)
 import "./globals.css";
 
 import AuthWrapper from "@/components/AuthWrapper";
 
-const manrope = Manrope({ subsets: ["latin"], display: 'swap' });
+// const manrope = Manrope({ subsets: ["latin"], display: 'swap' });
 
 export const metadata: Metadata = {
   title: "Precision Atelier",
@@ -24,9 +23,13 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&display=swap"
+        />
       </head>
       <body
-        className={`${manrope.className} bg-surface text-on-surface antialiased min-h-screen flex flex-col md:flex-row`}
+        className="bg-surface text-on-surface antialiased min-h-screen flex flex-col md:flex-row"
         suppressHydrationWarning
       >
         <AuthWrapper>

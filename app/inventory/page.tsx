@@ -130,9 +130,6 @@ export default function Inventory() {
       }
 
       // 1. Update Product (including image_url if changed)
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
-
       const { error: pError } = await supabase
         .from('products')
         .update({
@@ -141,7 +138,7 @@ export default function Inventory() {
           sku: editData.sku,
           category: editData.category,
           image_url: imageUrl,
-          owner_id: userId,
+          // owner_id omitted to satisfy Row Level Security policies
         })
         .eq('id', selectedProduct.id);
 
