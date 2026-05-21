@@ -484,8 +484,7 @@ export default function Settings() {
     try {
       const { error } = await supabase
         .from('store_settings')
-        .upsert({
-          id: 1,
+        .update({
           store_name: storeName,
           email: email,
           phone: phone,
@@ -503,7 +502,8 @@ export default function Settings() {
           transaction_pin: transactionPin,
           require_pin_for_delete: requirePinForDelete,
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('id', 1);
 
       if (error) throw error;
       

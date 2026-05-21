@@ -14,7 +14,9 @@ export default function Inventory() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
   // Real Metrics
   const [stats, setStats] = useState({ totalItems: 0, lowStock: 0, totalValue: 0 });
   const [settings, setSettings] = useState<any>(null);
@@ -24,86 +26,88 @@ export default function Inventory() {
 
   useEffect(() => {
     setMounted(true);
+    // Fetch inventory immediately — don't wait for settings
+    fetchInventory();
+    // Also load settings in background
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    if (settings) {
-      fetchInventory();
-    }
-  }, [settings]);
-
   const fetchSettings = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
-      if (data) {
-        setSettings(data);
-        // Ensure inventory is fetched after settings are set
-        await fetchInventory();
-      } else {
-        // No settings found, still fetch inventory with defaults
-        await fetchInventory();
-      }
+      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).maybeSingle();
+      if (data) setSettings(data);
     } catch (e) {
-      console.error("Inventory Settings Error:", e);
-      // Fallback: fetch inventory anyway
-      await fetchInventory();
+      console.warn("Settings fetch failed (non-critical):", e);
     }
   };
 
   const fetchInventory = async () => {
+    setIsLoading(true);
+    setFetchError(null);
     try {
-      // Get current user for RLS filtering
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
-      const { data, error } = await supabase
+      console.log("[Inventory] Fetching products...");
+      const { data, error, status, statusText } = await supabase
         .from('products')
-        .select('*, variants(*)')
-        .eq('owner_id', userId);
-      
-      if (error) throw error;
+        .select('*, variants(*)');
 
-      if (data) {
-        let totalVal = 0;
-        let lowS = 0;
+      console.log("[Inventory] Response:", { status, statusText, rowCount: data?.length, error });
 
-        const formatted = data.map((p: any) => {
-          const variants = p.variants || [];
-          const totalStock = variants.reduce((sum: number, v: any) => sum + v.stock, 0);
-          const prices = variants.map((v: any) => v.price);
-          const minPrice = prices.length ? Math.min(...prices) : 0;
-          const maxPrice = prices.length ? Math.max(...prices) : 0;
-          
-          totalVal += variants.reduce((sum: number, v: any) => sum + (v.stock * v.price), 0);
-          const threshold = settings?.low_stock_threshold || 10;
-          if (totalStock > 0 && totalStock < threshold) lowS++;
-
-          return {
-            id: p.id,
-            sku: p.sku,
-            brand: p.brand,
-            title: p.title,
-            name: `${p.brand} ${p.title}`,
-            category: p.category,
-            status: totalStock === 0 ? "out-of-stock" : totalStock < (settings?.low_stock_threshold || 10) ? "low-stock" : "in-stock",
-            variantCount: variants.length,
-            variants: variants,
-            stock: totalStock,
-            price: minPrice === maxPrice 
-              ? formatCurrency(minPrice, settings) 
-              : `${formatCurrency(minPrice, settings)} - ${formatCurrency(maxPrice, settings)}`,
-            img: p.image_url
-          };
-        });
-        setItems(formatted);
-        setStats({
-          totalItems: data.length,
-          lowStock: lowS,
-          totalValue: totalVal
-        });
+      if (error) {
+        setFetchError(`DB Error ${status}: ${error.message} — ${error.hint || error.details || ''}`);
+        console.error("[Inventory] Supabase error:", error);
+        return;
       }
-    } catch (e) {
-      console.error("Fetch Error:", e);
+
+      if (!data || data.length === 0) {
+        console.warn("[Inventory] Query returned 0 rows. Possible RLS block or empty table.");
+        setItems([]);
+        setStats({ totalItems: 0, lowStock: 0, totalValue: 0 });
+        return;
+      }
+
+      let totalVal = 0;
+      let lowS = 0;
+
+      const formatted = data.map((p: any) => {
+        const variants = p.variants || [];
+        const totalStock = variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+        const prices = variants.map((v: any) => v.price || 0);
+        const minPrice = prices.length ? Math.min(...prices) : 0;
+        const maxPrice = prices.length ? Math.max(...prices) : 0;
+
+        totalVal += variants.reduce((sum: number, v: any) => sum + ((v.stock || 0) * (v.price || 0)), 0);
+        const threshold = settings?.low_stock_threshold || 10;
+        if (totalStock > 0 && totalStock < threshold) lowS++;
+
+        return {
+          id: p.id,
+          sku: p.sku,
+          brand: p.brand,
+          title: p.title,
+          name: `${p.brand} ${p.title}`,
+          category: p.category,
+          status: totalStock === 0 ? "out-of-stock" : totalStock < (settings?.low_stock_threshold || 10) ? "low-stock" : "in-stock",
+          variantCount: variants.length,
+          variants: variants,
+          stock: totalStock,
+          price: minPrice === maxPrice
+            ? formatCurrency(minPrice, settings)
+            : `${formatCurrency(minPrice, settings)} - ${formatCurrency(maxPrice, settings)}`,
+          img: p.image_url
+        };
+      });
+
+      setItems(formatted);
+      setStats({
+        totalItems: data.length,
+        lowStock: lowS,
+        totalValue: totalVal
+      });
+    } catch (e: any) {
+      console.error("[Inventory] Unexpected error:", e);
+      setFetchError(`Unexpected error: ${e.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -465,11 +469,26 @@ export default function Inventory() {
                     </div>
                   </div>
                 </motion.div>
-              )) : (
+              )) : isLoading ? (
+                <div className="text-center py-20 bg-surface-container-lowest rounded-3xl border border-outline-variant/15">
+                  <span className="material-symbols-outlined text-5xl mb-4 text-primary animate-spin">refresh</span>
+                  <p className="text-xl font-bold text-primary">Loading inventory...</p>
+                </div>
+              ) : fetchError ? (
+                <div className="text-center py-20 bg-error/5 rounded-3xl border border-error/20">
+                  <span className="material-symbols-outlined text-5xl mb-4 text-error">error</span>
+                  <p className="text-xl font-bold text-error">Failed to load products</p>
+                  <p className="text-on-surface-variant mt-2 text-sm max-w-lg mx-auto font-mono">{fetchError}</p>
+                  <p className="text-on-surface-variant mt-3 text-sm font-bold">⚠️ This is likely an RLS (Row Level Security) policy blocking reads.<br/>Go to Supabase → Table Editor → products → Policies and ensure SELECT is allowed.</p>
+                  <button onClick={fetchInventory} className="mt-6 px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-sm hover:opacity-90">Retry</button>
+                </div>
+              ) : (
                 <div className="text-center py-20 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 border-dashed">
-                  <span className="material-symbols-outlined text-5xl mb-4 text-on-surface-variant/30">search_off</span>
+                  <span className="material-symbols-outlined text-5xl mb-4 text-on-surface-variant/30">inventory_2</span>
                   <p className="text-xl font-bold text-primary">No products found</p>
-                  <p className="text-on-surface-variant mt-1">Try searching for a different SKU or name.</p>
+                  <p className="text-on-surface-variant mt-1">The products table is empty, or RLS is hiding all rows.</p>
+                  <p className="text-on-surface-variant text-xs mt-2">Check the browser console (F12) for <strong>[Inventory]</strong> log messages.</p>
+                  <button onClick={fetchInventory} className="mt-6 px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-sm hover:opacity-90">Retry</button>
                 </div>
               )}
             </div>
