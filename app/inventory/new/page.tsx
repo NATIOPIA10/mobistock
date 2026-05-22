@@ -190,13 +190,12 @@ export default function NewProduct() {
         options: v.options,
         price: v.price * factor, // Convert view price back to base ETB
         cost: v.cost * factor,   // Convert view cost back to base ETB
-        stock: v.stock,
-        owner_id: user?.id
+        stock: v.stock
       }));
 
       const { error: variantsError } = await supabase
         .from('variants')
-        .upsert(variantsToInsert, { onConflict: 'sku' });
+        .insert(variantsToInsert);
 
       if (variantsError) throw variantsError;
 

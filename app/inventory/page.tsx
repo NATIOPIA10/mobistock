@@ -162,6 +162,24 @@ const data = products.map((p) => {
   };
 
   const handleSaveEdit = async () => {
+    // Detect if stock has changed
+    const stockChanged = editData.variants.some((v: any) => {
+      const originalVariant = selectedProduct.variants.find((ov: any) => ov.id === v.id);
+      return originalVariant && originalVariant.stock !== v.stock;
+    });
+
+    if (stockChanged) {
+      if (!settings?.transaction_pin) {
+        alert("A Security PIN is not configured in Store Settings. Please configure it first to update stock.");
+        return;
+      }
+      const pin = prompt("Enter Security PIN to authorize stock changes:");
+      if (pin !== settings.transaction_pin) {
+        alert("Incorrect PIN. Update aborted.");
+        return;
+      }
+    }
+
     // Get current user for RLS
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
