@@ -61,11 +61,19 @@ export default function Settings() {
       if (!backup.products) throw new Error("Invalid backup file format.");
 
       // 1. Wipe existing data
-      // Delete products (cascades to variants)
+      // Explicitly delete variants first (avoids cascade dependency issues)
+      const { error: deleteVError } = await supabase.from('variants').delete().not('id', 'is', null);
+      if (deleteVError) throw deleteVError;
+
+      // Delete products
       const { error: deletePError } = await supabase.from('products').delete().not('id', 'is', null);
       if (deletePError) throw deletePError;
 
-      // Delete orders (cascades to order_items)
+      // Explicitly delete order_items first
+      const { error: deleteOIError } = await supabase.from('order_items').delete().not('id', 'is', null);
+      if (deleteOIError) throw deleteOIError;
+
+      // Delete orders
       const { error: deleteOError } = await supabase.from('orders').delete().not('id', 'is', null);
       if (deleteOError) throw deleteOError;
 
