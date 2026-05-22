@@ -88,11 +88,11 @@ const data = products.map((p) => {
   return { ...p, variants: variants?.filter((v) => v.product_id === p.id) || [] };
 });
 
-      console.log("[Inventory] Response:", { status, statusText, rowCount: data?.length, error });
+      console.log("[Inventory] Response:", { status, statusText, rowCount: data?.length, varError });
 
-      if (error) {
-        setFetchError(`DB Error ${status}: ${error.message} — ${error.hint || error.details || ''}`);
-        console.error("[Inventory] Supabase error:", error);
+      if (varError) {
+        setFetchError(`DB Error ${status}: ${(varError as any).message} — ${(varError as any).hint || (varError as any).details || ''}`);
+        console.error("[Inventory] Supabase error:", varError);
         return;
       }
 
@@ -166,27 +166,10 @@ const data = products.map((p) => {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
     try {
-      // 0. Upload new image if provided
+      // 0. Use new image base64 if provided
       let imageUrl = selectedProduct.image_url;
-      if (editData.imageFile) {
-        // Ensure the storage bucket exists (create if missing)
-        const { error: bucketErr } = await supabase.storage.createBucket('product_images', { public: true });
-        if (bucketErr && !bucketErr.message?.includes('already exists')) {
-          throw bucketErr;
-        }
-        const filePath = `${editData.sku || selectedProduct.sku}/${Date.now()}_${editData.imageFile.name}`;
-        const { data: uploadData, error: uploadError } = await supabase
-          .storage
-          .from('product_images')
-          .upload(filePath, editData.imageFile);
-        if (uploadError) {
-          if (uploadError.message?.includes('Bucket not found')) {
-            alert('Image bucket "product_images" does not exist. Please create it in Supabase storage with public read access.');
-          }
-          throw uploadError;
-        }
-        const { data: publicData } = supabase.storage.from('product_images').getPublicUrl(filePath);
-        imageUrl = publicData.publicUrl;
+      if (editData.imageBase64) {
+        imageUrl = editData.imageBase64;
       }
 
       // 1. Update Product (including image_url if changed)
@@ -198,7 +181,6 @@ const data = products.map((p) => {
           sku: editData.sku,
           category: editData.category,
           image_url: imageUrl,
-          owner_id: userId,
         })
         .eq('id', selectedProduct.id);
 
@@ -606,7 +588,13 @@ const data = products.map((p) => {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) setEditData({ ...editData, imageFile: file });
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setEditData({ ...editData, imageFile: file, imageBase64: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
                       className="w-full bg-surface-container-low rounded-2xl py-2 px-4 text-on-surface outline-none focus:ring-2 focus:ring-secondary-container transition-all"
                     />
