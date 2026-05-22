@@ -55,9 +55,12 @@ export default function Dashboard() {
     const newAlerts: any[] = [];
     try {
       // 1. Fetch Data
-      const { data: ordersData } = await supabase.from('orders').select('*');
-      const { data: itemsData } = await supabase.from('order_items').select('*');
-      const { data: productsData } = await supabase.from('products').select('*, variants(*)');
+      const { data: ordersData, error: ordersErr } = await supabase.from('orders').select('*');
+      console.log('fetchDashboardData ordersData:', ordersData, 'error:', ordersErr);
+      const { data: itemsData, error: itemsErr } = await supabase.from('order_items').select('*');
+      console.log('fetchDashboardData itemsData:', itemsData, 'error:', itemsErr);
+      const { data: productsData, error: prodErr } = await supabase.from('products').select('*, variants(*)');
+      console.log('fetchDashboardData productsData:', productsData, 'error:', prodErr);
       let salesCount: Record<string, number> = {};
 
       if (ordersData) {
@@ -87,6 +90,7 @@ export default function Dashboard() {
             });
           });
 
+          // Build sales count from completed order items
           filteredItems.forEach((item: any) => {
             const productId = item.product_id || variantToProduct[item.variant_id];
             if (productId) {
@@ -96,23 +100,27 @@ export default function Dashboard() {
         }
       }
       if (productsData) {
-        // Fetch Best Sellers by joining orders
+        // Build best sellers from the salesCount map (computed above)
         const bestS = productsData
           .map(p => ({
-            img: p.image_url,
-            alt: p.title,
-            title: p.title,
-            sku: p.sku,
+            img: p.image_url || '',
+            alt: p.title || '',
+            title: p.title || '',
+            sku: p.sku || '',
             sales: salesCount[p.id] || 0,
-            stock: p.variants.reduce((s: number, v: any) => s + v.stock, 0)
+            stock: p.variants?.reduce((s: number, v: any) => s + (v?.stock || 0), 0) || 0,
           }))
-          .sort((a, b) => b.sales - a.sales) // Sort by real sales count
+          .sort((a, b) => {
+            if (b.sales !== a.sales) return b.sales - a.sales;
+            return b.stock - a.stock;
+          })
           .slice(0, 4);
+        console.log('Best sellers computed:', bestS);
         setBestSellers(bestS);
 
         // Generate Alerts based on stock
         productsData.forEach(p => {
-          const totalStock = p.variants.reduce((sum: number, v: any) => sum + v.stock, 0);
+          const totalStock = p.variants?.reduce((sum: number, v: any) => sum + (v?.stock || 0), 0) || 0;
           const threshold = settings?.low_stock_threshold || 10;
           if (totalStock === 0) {
             newAlerts.push({ 
