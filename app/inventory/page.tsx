@@ -46,9 +46,43 @@ export default function Inventory() {
     setFetchError(null);
     try {
       console.log("[Inventory] Fetching products...");
-      const { data, error, status, statusText } = await supabase
-        .from('products')
-        .select('*, variants(*)');
+const { data: products, error: prodError, status, statusText } = await supabase
+  .from('products')
+  .select('*');
+
+if (prodError) {
+  setFetchError(`DB Error ${status}: ${prodError.message} – ${prodError.hint || prodError.details || ''}`);
+  console.error('[Inventory] Product fetch error:', prodError);
+  setIsLoading(false);
+  return;
+}
+
+if (!products || products.length === 0) {
+  console.warn('[Inventory] No products returned. Possible empty table or RLS block.');
+  setItems([]);
+  setStats({ totalItems: 0, lowStock: 0, totalValue: 0 });
+  setIsLoading(false);
+  return;
+}
+
+// Fetch all variants for these products in a single query
+const productIds = products.map((p) => p.id);
+const { data: variants, error: varError } = await supabase
+  .from('variants')
+  .select('*')
+  .in('product_id', productIds);
+
+if (varError) {
+  setFetchError(`DB Error fetching variants: ${varError.message}`);
+  console.error('[Inventory] Variant fetch error:', varError);
+  setIsLoading(false);
+  return;
+}
+
+// Attach variants to their parent products
+const data = products.map((p) => {
+  return { ...p, variants: variants?.filter((v) => v.product_id === p.id) || [] };
+});
 
       console.log("[Inventory] Response:", { status, statusText, rowCount: data?.length, error });
 
