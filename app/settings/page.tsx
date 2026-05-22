@@ -219,6 +219,7 @@ export default function Settings() {
   const handleBackup = async () => {
     try {
       const { data: products } = await supabase.from('products').select('*, variants(*)');
+      const { data: variants } = await supabase.from('variants').select('*');
       const { data: settingsData } = await supabase.from('store_settings').select('*').eq('id', 1).single();
       const { data: orders } = await supabase.from('orders').select('*');
       const { data: orderItems } = await supabase.from('order_items').select('*');
@@ -308,6 +309,7 @@ export default function Settings() {
       const backupData = {
         timestamp: new Date().toISOString(),
         products: formattedProducts,
+        variants: variants || [],
         settings: settingsData || {},
         orders: orders || [],
         order_items: orderItems || [],
@@ -361,19 +363,27 @@ export default function Settings() {
 
     setIsResetting(true);
     try {
-      // 1. Delete all products (cascades to variants)
+      // 1. Explicitly delete all variants first (avoids cascade dependency issues)
+      const { error: vError } = await supabase.from('variants').delete().not('id', 'is', null);
+      if (vError) throw vError;
+
+      // 2. Delete all products
       const { error: pError } = await supabase.from('products').delete().not('id', 'is', null);
       if (pError) throw pError;
 
-      // 2. Delete all orders (cascades to order_items)
+      // 3. Delete all order_items first (before orders)
+      const { error: oiError } = await supabase.from('order_items').delete().not('id', 'is', null);
+      if (oiError) throw oiError;
+
+      // 4. Delete all orders
       const { error: oError } = await supabase.from('orders').delete().not('id', 'is', null);
       if (oError) throw oError;
 
-      // 3. Delete all security logs
+      // 5. Delete all security logs
       const { error: lError } = await supabase.from('security_logs').delete().not('id', 'is', null);
       if (lError) throw lError;
 
-      alert("Full database reset successful. All products, sales history, and logs have been cleared.");
+      alert("Full database reset successful. All products, variants, sales history, and logs have been cleared.");
       window.location.reload();
     } catch (e: any) {
       console.error("Full Reset Error:", e);
