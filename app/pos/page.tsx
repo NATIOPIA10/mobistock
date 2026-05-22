@@ -185,6 +185,9 @@ export default function POS() {
     if (cart.length === 0) return;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated.");
+
       // 1. Create Order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -194,7 +197,8 @@ export default function POS() {
           payment_method: "Cash",
           status: "completed",
           currency: settings?.currency || "ETB",
-          tax_amount: taxETB
+          tax_amount: taxETB,
+          owner_id: user.id
         })
         .select()
         .single();
