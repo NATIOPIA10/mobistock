@@ -41,16 +41,29 @@ export default function POS() {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, variants(*)');
-      
-      if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (data) {
-        const formatted = data.map((p: any) => {
-          const mainVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
-          const totalStock = p.variants ? p.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) : 0;
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('owner_id', user.id);
+      
+      if (prodError) throw prodError;
+
+      if (products && products.length > 0) {
+        const productIds = products.map(p => p.id);
+        const { data: variants, error: varError } = await supabase
+          .from('variants')
+          .select('*')
+          .in('product_id', productIds);
+
+        if (varError) throw varError;
+
+        const formatted = products.map((p: any) => {
+          const pVariants = variants?.filter(v => v.product_id === p.id) || [];
+          const mainVariant = pVariants.length > 0 ? pVariants[0] : null;
+          const totalStock = pVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
           
           return {
             id: p.id,
@@ -59,9 +72,9 @@ export default function POS() {
             sku: p.sku,
             brand: p.brand,
             category: p.category,
-            variants: p.variants ? p.variants.map((v: any) => v.options ? Object.values(v.options).join(' / ') : '').filter(Boolean).join(', ') : '',
-            price: p.variants && p.variants.length > 0 ? Math.min(...p.variants.map((v: any) => v.price)) : 0,
-            maxPrice: p.variants && p.variants.length > 0 ? Math.max(...p.variants.map((v: any) => v.price)) : 0,
+            variants: pVariants.map((v: any) => v.options ? Object.values(v.options).join(' / ') : '').filter(Boolean).join(', '),
+            price: pVariants.length > 0 ? Math.min(...pVariants.map((v: any) => v.price)) : 0,
+            maxPrice: pVariants.length > 0 ? Math.max(...pVariants.map((v: any) => v.price)) : 0,
             stock: totalStock,
             stockLabel: totalStock === 0 ? "Out of Stock" : totalStock < 10 ? `Low Stock: ${totalStock}` : `In Stock: ${totalStock}`,
             isOutOfStock: totalStock === 0,
@@ -71,6 +84,8 @@ export default function POS() {
           };
         });
         setProducts(formatted);
+      } else {
+        setProducts([]);
       }
     } catch (e) {
       console.error("POS Fetch Error:", e);
