@@ -61,13 +61,8 @@ export default function Settings() {
       if (!backup.products) throw new Error("Invalid backup file format.");
 
       // 1. Wipe existing data
-      // Explicitly delete variants first (avoids cascade dependency issues)
-      const { error: deleteVError } = await supabase.from('variants').delete().not('id', 'is', null);
-      if (deleteVError) throw deleteVError;
-
-      // Delete products
-      const { error: deletePError } = await supabase.from('products').delete().not('id', 'is', null);
-      if (deletePError) throw deletePError;
+      const { data: productsData } = await supabase.from('products').select('id');
+      const productIds = productsData?.map(p => p.id) || [];
 
       // Explicitly delete order_items first
       const { error: deleteOIError } = await supabase.from('order_items').delete().not('id', 'is', null);
@@ -76,6 +71,18 @@ export default function Settings() {
       // Delete orders
       const { error: deleteOError } = await supabase.from('orders').delete().not('id', 'is', null);
       if (deleteOError) throw deleteOError;
+
+      // Explicitly delete variants using product_ids to ensure RLS policies pass
+      if (productIds.length > 0) {
+        const { error: deleteVError } = await supabase.from('variants').delete().in('product_id', productIds);
+        if (deleteVError) throw deleteVError;
+      } else {
+        await supabase.from('variants').delete().not('id', 'is', null);
+      }
+
+      // Delete products
+      const { error: deletePError } = await supabase.from('products').delete().not('id', 'is', null);
+      if (deletePError) throw deletePError;
 
       // 2. Restore Products & Variants
       for (const p of backup.products) {
@@ -371,21 +378,30 @@ export default function Settings() {
 
     setIsResetting(true);
     try {
-      // 1. Explicitly delete all variants first (avoids cascade dependency issues)
-      const { error: vError } = await supabase.from('variants').delete().not('id', 'is', null);
-      if (vError) throw vError;
+      // Fetch all products first to target their variants
+      const { data: productsData } = await supabase.from('products').select('id');
+      const productIds = productsData?.map(p => p.id) || [];
 
-      // 2. Delete all products
-      const { error: pError } = await supabase.from('products').delete().not('id', 'is', null);
-      if (pError) throw pError;
-
-      // 3. Delete all order_items first (before orders)
+      // 1. Delete all order_items first (before orders and variants)
       const { error: oiError } = await supabase.from('order_items').delete().not('id', 'is', null);
       if (oiError) throw oiError;
 
-      // 4. Delete all orders
+      // 2. Delete all orders
       const { error: oError } = await supabase.from('orders').delete().not('id', 'is', null);
       if (oError) throw oError;
+
+      // 3. Explicitly delete all variants using product_ids to ensure RLS policies pass
+      if (productIds.length > 0) {
+        const { error: vError } = await supabase.from('variants').delete().in('product_id', productIds);
+        if (vError) throw vError;
+      } else {
+        // Fallback just in case
+        await supabase.from('variants').delete().not('id', 'is', null);
+      }
+
+      // 4. Delete all products
+      const { error: pError } = await supabase.from('products').delete().not('id', 'is', null);
+      if (pError) throw pError;
 
       // 5. Delete all security logs
       const { error: lError } = await supabase.from('security_logs').delete().not('id', 'is', null);
