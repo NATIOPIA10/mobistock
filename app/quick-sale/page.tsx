@@ -26,7 +26,7 @@ export default function QuickSale() {
   const [ticketNo, setTicketNo] = useState("");
   const [note, setNote] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [settings, setSettings] = useState<any>(null);
+  const [userId, setUserId] = useState<string>('');
 
   // Derived categories from settings
   const categories = ["All", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Accessories", "Wearables", "Tablets"])];
@@ -47,9 +47,16 @@ export default function QuickSale() {
     }
   };
 
-  const fetchCatalog = async () => {
+  const fetchUserAndCatalog = async () => {
     try {
-      const { data, error } = await supabase.from('products').select('*, variants(*)');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+      // Fetch products filtered by owner_id
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, variants(*)')
+        .eq('owner_id', user?.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       if (data) {
         const formatted = data.map((p: any) => {
@@ -63,15 +70,22 @@ export default function QuickSale() {
             maxPrice: p.variants && p.variants.length > 0 ? Math.max(...p.variants.map((v: any) => v.price)) : 0,
             stock: p.variants ? p.variants.reduce((s: number, v: any) => s + (v.stock || 0), 0) : 0,
             category: p.category,
-            img: p.image_url
+            img: p.image_url,
           };
         });
         setCatalog(formatted);
       }
     } catch (e) {
-      console.error("QuickSale Fetch Error:", e);
+      console.error('QuickSale Fetch Error:', e);
     }
   };
+
+  useEffect(() => {
+    setTicketNo(`#${Math.floor(8000 + Math.random() * 999)}-Q`);
+    setMounted(true);
+    fetchUserAndCatalog();
+    fetchSettings();
+  }, []);
 
   const filtered = catalog.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
