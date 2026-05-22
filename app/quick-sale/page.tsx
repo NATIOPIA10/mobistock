@@ -25,8 +25,8 @@ export default function QuickSale() {
   const [receipt, setReceipt] = useState(false);
   const [ticketNo, setTicketNo] = useState("");
   const [note, setNote] = useState("");
-  const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState<string>('');
+  const [settings, setSettings] = useState<any>(null);
 
   // Derived categories from settings
   const categories = ["All", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Smartphones", "Accessories", "Wearables", "Tablets"])];
@@ -34,7 +34,7 @@ export default function QuickSale() {
   useEffect(() => {
     setTicketNo(`#${Math.floor(8000 + Math.random() * 999)}-Q`);
     setMounted(true);
-    fetchCatalog();
+    fetchUserAndCatalog();
     fetchSettings();
   }, []);
 
@@ -50,15 +50,17 @@ export default function QuickSale() {
   const fetchUserAndCatalog = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('QuickSale user:', user);
       if (user) setUserId(user.id);
-      // Fetch products filtered by owner_id
       const { data, error } = await supabase
         .from('products')
         .select('*, variants(*)')
-        .eq('owner_id', user?.id)
+        // .eq('owner_id', user?.id) // removed owner filter for debugging
         .order('created_at', { ascending: false });
+      console.log('fetchCatalog data:', data, 'error:', error);
       if (error) throw error;
       if (data) {
+        console.log('Fetched product count:', data.length);
         const formatted = data.map((p: any) => {
           const mainVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
           return {
@@ -79,13 +81,6 @@ export default function QuickSale() {
       console.error('QuickSale Fetch Error:', e);
     }
   };
-
-  useEffect(() => {
-    setTicketNo(`#${Math.floor(8000 + Math.random() * 999)}-Q`);
-    setMounted(true);
-    fetchUserAndCatalog();
-    fetchSettings();
-  }, []);
 
   const filtered = catalog.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
