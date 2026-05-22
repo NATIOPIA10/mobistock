@@ -13,6 +13,8 @@ export default function POS() {
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [activeCategory, setActiveCategory] = useState("All Products");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -194,7 +196,7 @@ export default function POS() {
         .insert({
           total_amount: totalETB,
           customer_name: customerName || "Walk-in Customer",
-          payment_method: "Cash",
+          payment_method: paymentMethod,
           status: "completed",
           currency: settings?.currency || "ETB",
           tax_amount: taxETB,
@@ -339,6 +341,10 @@ export default function POS() {
         onUpdateDiscount={setDiscount}
         customerName={customerName}
         onUpdateCustomerName={setCustomerName}
+        customerPhone={customerPhone}
+        onUpdateCustomerPhone={setCustomerPhone}
+        paymentMethod={paymentMethod}
+        onUpdatePaymentMethod={setPaymentMethod}
         onToggleTax={handleToggleTax}
         onRemove={handleRemoveItem}
         onClear={handleClearCart}
@@ -481,7 +487,7 @@ export default function POS() {
                 </div>
                 <div className="flex justify-between pt-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Payment Method</span>
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">Cash / Digital</span>
+                                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">{paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}</span>
                 </div>
               </div>
 

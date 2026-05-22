@@ -50,30 +50,57 @@ export default function QuickSale() {
 
   const fetchCatalog = async () => {
     try {
-      const { data, error } = await supabase
-          .from('products')
-          .select('*, variants(*)')
-          .order('created_at', { ascending: false });
-      console.log('fetchCatalog data:', data, 'error:', error);
-      if (error) throw error;
-      if (data) {
-        console.log('Fetched product count:', data.length);
-        const formatted = data.map((p: any) => {
-          const mainVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
-          return {
-            id: p.id,
-            variantId: mainVariant?.id,
-            name: p.title,
-            sku: p.sku,
-            price: p.variants && p.variants.length > 0 ? Math.min(...p.variants.map((v: any) => v.price)) : 0,
-            maxPrice: p.variants && p.variants.length > 0 ? Math.max(...p.variants.map((v: any) => v.price)) : 0,
-            stock: p.variants ? p.variants.reduce((s: number, v: any) => s + (v.stock || 0), 0) : 0,
-            category: p.category,
-            img: p.image_url,
-          };
-        });
-        setCatalog(formatted);
+      // Fetch products
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      console.log('fetchCatalog products:', products, 'error:', prodError);
+      if (prodError) throw prodError;
+
+      if (!products) {
+        setCatalog([]);
+        return;
       }
+
+      // Collect product IDs to fetch associated variants
+      const productIds = products.map((p: any) => p.id);
+      const { data: variants, error: varError } = await supabase
+        .from('variants')
+        .select('*')
+        .in('product_id', productIds);
+      console.log('fetchCatalog variants:', variants, 'error:', varError);
+      if (varError) throw varError;
+
+      // Map variants to their product
+      const variantsByProduct: Record<string, any[]> = {};
+      variants?.forEach((v: any) => {
+        const pid = v.product_id;
+        if (!variantsByProduct[pid]) variantsByProduct[pid] = [];
+        variantsByProduct[pid].push(v);
+      });
+
+      const formatted = products.map((p: any) => {
+        const prodVariants = variantsByProduct[p.id] || [];
+        const mainVariant = prodVariants.length > 0 ? prodVariants[0] : null;
+        // Resolve image URL – if stored as relative path, prepend public URL base
+        let imgUrl = p.image_url || '';
+        if (imgUrl && !imgUrl.startsWith('http')) {
+          imgUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${imgUrl}`;
+        }
+        return {
+          id: p.id,
+          variantId: mainVariant?.id,
+          name: p.title,
+          sku: p.sku,
+          price: prodVariants.length > 0 ? Math.min(...prodVariants.map((v: any) => v.price)) : 0,
+          maxPrice: prodVariants.length > 0 ? Math.max(...prodVariants.map((v: any) => v.price)) : 0,
+          stock: prodVariants.reduce((s: number, v: any) => s + (v.stock || 0), 0),
+          category: p.category,
+          img: imgUrl,
+        };
+      });
+      setCatalog(formatted);
     } catch (e) {
       console.error('QuickSale Fetch Error:', e);
     }
