@@ -189,6 +189,16 @@ export default function Settings() {
       const records = parseCSV(text);
       if (records.length === 0) throw new Error("CSV is empty or invalid format.");
 
+      // Map 'image' to 'image_url' for products
+      if (table === 'products') {
+        records.forEach(rec => {
+          if (rec.image && !rec.image_url) {
+            rec.image_url = rec.image;
+            delete rec.image;
+          }
+        });
+      }
+
       // Ensure SKU is a non-empty trimmed string for variants
       if (table === 'variants') {
         records.forEach((rec, idx) => {
@@ -937,7 +947,7 @@ export default function Settings() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                       <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10">
                         <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-3">1. Import Products</label>
-                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: sku, brand, title, category</p>
+                        <p className="text-xs text-on-surface-variant mb-4">CSV must include: sku, brand, title, category, image_url</p>
                         <input 
                           type="file" 
                           id="import-products" 
