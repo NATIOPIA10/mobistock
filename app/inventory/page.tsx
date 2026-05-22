@@ -46,9 +46,13 @@ export default function Inventory() {
     setFetchError(null);
     try {
       console.log("[Inventory] Fetching products...");
-const { data: products, error: prodError, status, statusText } = await supabase
-  .from('products')
-  .select('*');
+      // Get authenticated user for RLS
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      const { data: products, error: prodError, status, statusText } = await supabase
+        .from('products')
+        .select('*')
+        .eq('owner_id', userId);
 
 if (prodError) {
   setFetchError(`DB Error ${status}: ${prodError.message} – ${prodError.hint || prodError.details || ''}`);
