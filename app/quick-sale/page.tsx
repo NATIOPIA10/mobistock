@@ -16,6 +16,7 @@ const paymentMethods = [
 
 export default function QuickSale() {
   const [catalog, setCatalog] = useState<Product[]>([]);
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -34,7 +35,7 @@ export default function QuickSale() {
   useEffect(() => {
     setTicketNo(`#${Math.floor(8000 + Math.random() * 999)}-Q`);
     setMounted(true);
-    fetchUserAndCatalog();
+    fetchCatalog();
     fetchSettings();
   }, []);
 
@@ -47,16 +48,12 @@ export default function QuickSale() {
     }
   };
 
-  const fetchUserAndCatalog = async () => {
+  const fetchCatalog = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('QuickSale user:', user);
-      if (user) setUserId(user.id);
       const { data, error } = await supabase
-        .from('products')
-        .select('*, variants(*)')
-        // .eq('owner_id', user?.id) // removed owner filter for debugging
-        .order('created_at', { ascending: false });
+          .from('products')
+          .select('*, variants(*)')
+          .order('created_at', { ascending: false });
       console.log('fetchCatalog data:', data, 'error:', error);
       if (error) throw error;
       if (data) {
