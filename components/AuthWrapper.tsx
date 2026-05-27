@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -46,6 +47,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return () => subscription.unsubscribe();
   }, [router, pathname]);
 
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-surface flex items-center justify-center">
@@ -67,8 +73,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // Logged in: show sidebar, header and content
   return (
     <>
-      <Sidebar />
-      <Header />
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+      />
+      <Header onMenuOpen={() => setMobileSidebarOpen(true)} />
       {children}
     </>
   );
