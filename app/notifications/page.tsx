@@ -24,6 +24,10 @@ export default function Notifications() {
   useEffect(() => {
     setMounted(true);
     fetchNotifications();
+    // FIX: Mark notifications as read when this page is visited
+    // so the red badge on the dashboard clears
+    localStorage.setItem('mobistock_notifications_read_at', new Date().toISOString());
+    window.dispatchEvent(new Event('mobistock_notifications_read'));
   }, []);
 
   const fetchNotifications = async () => {

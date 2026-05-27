@@ -492,8 +492,9 @@ export default function POS() {
               </div>
 
               <div className="flex gap-4">
+                {/* FIX: Print Receipt now calls window.print() instead of re-submitting the sale */}
                 <button 
-                  onClick={completeSale}
+                  onClick={() => window.print()}
                   className="flex-1 py-5 bg-surface-container-highest text-on-surface rounded-2xl font-black uppercase tracking-widest hover:bg-surface-dim transition-all"
                 >
                   Print Receipt

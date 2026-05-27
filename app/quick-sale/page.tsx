@@ -26,7 +26,7 @@ export default function QuickSale() {
   const [receipt, setReceipt] = useState(false);
   const [ticketNo, setTicketNo] = useState("");
   const [note, setNote] = useState("");
-  const [userId, setUserId] = useState<string>('');
+  // FIX: Removed unused userId state (was declared but setUserId was never called)
   const [settings, setSettings] = useState<any>(null);
 
   // Derived categories from settings
@@ -158,13 +158,16 @@ export default function QuickSale() {
     
     try {
       // 1. Create Order
+      // FIX: Added explicit owner_id to satisfy RLS policy (was relying on DB default auth.uid())
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: order, error: orderErr } = await supabase
         .from('orders')
         .insert({
           customer_name: customer || "Walk-in",
           total_amount: totalETB,
           payment_method: payMethod,
-          status: "completed"
+          status: "completed",
+          owner_id: user?.id,
         })
         .select()
         .single();

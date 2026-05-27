@@ -32,35 +32,54 @@ export default function Dashboard() {
   const [adminPhoto, setAdminPhoto] = useState<string | null>(null);
   const [showBadge, setShowBadge] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    fetchSettings();
     fetchDashboardData();
   }, []);
 
-  const fetchSettings = async () => {
-    try {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
-      if (data) {
-        setSettings(data);
-        if (data.admin_photo) setAdminPhoto(data.admin_photo);
-      }
-    } catch (e) {
-      console.error("Dashboard Settings Error:", e);
-    }
-  };
-
   const fetchDashboardData = async () => {
+    setLoading(true);
     const newAlerts: any[] = [];
     try {
-      // 1. Fetch Data
-      const { data: ordersData, error: ordersErr } = await supabase.from('orders').select('*');
-      console.log('fetchDashboardData ordersData:', ordersData, 'error:', ordersErr);
-      const { data: itemsData, error: itemsErr } = await supabase.from('order_items').select('*');
-      console.log('fetchDashboardData itemsData:', itemsData, 'error:', itemsErr);
-      const { data: productsData, error: prodErr } = await supabase.from('products').select('*, variants(*)');
-      console.log('fetchDashboardData productsData:', productsData, 'error:', prodErr);
+      // 1. Wait for auth user
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) {
+        console.error("[Dashboard] User not authenticated:", authErr);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch settings sequentially first to avoid race conditions
+      const { data: settingsData, error: settingsErr } = await supabase
+        .from('store_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      
+      console.log('[Dashboard] Settings fetched:', settingsData, settingsErr);
+      let activeSettings = settingsData;
+      if (settingsData) {
+        setSettings(settingsData);
+        if (settingsData.admin_photo) {
+          setAdminPhoto(settingsData.admin_photo);
+        }
+      }
+
+      // 3. Fetch orders, order items, and products in parallel
+      const [ordersRes, itemsRes, productsRes] = await Promise.all([
+        supabase.from('orders').select('*'),
+        supabase.from('order_items').select('*'),
+        supabase.from('products').select('*, variants(*)')
+      ]);
+
+      const ordersData = ordersRes.data;
+      const itemsData = itemsRes.data;
+      const productsData = productsRes.data;
+
+      console.log('[Dashboard] Fetch counts -> orders:', ordersData?.length, 'items:', itemsData?.length, 'products:', productsData?.length);
+
       let salesCount: Record<string, number> = {};
 
       if (ordersData) {
@@ -99,8 +118,9 @@ export default function Dashboard() {
           });
         }
       }
+
       if (productsData) {
-        // Build best sellers from the salesCount map (computed above)
+        // Build best sellers from the salesCount map
         const bestS = productsData
           .map(p => ({
             img: p.image_url || '',
@@ -115,13 +135,16 @@ export default function Dashboard() {
             return b.stock - a.stock;
           })
           .slice(0, 4);
-        console.log('Best sellers computed:', bestS);
+        
+        console.log('[Dashboard] Best sellers computed:', bestS);
         setBestSellers(bestS);
 
-        // Generate Alerts based on stock
+        // Generate stock alerts using correct settings threshold
+        const threshold = activeSettings?.low_stock_threshold || 10;
+        console.log('[Dashboard] Active low stock threshold:', threshold);
+
         productsData.forEach(p => {
           const totalStock = p.variants?.reduce((sum: number, v: any) => sum + (v?.stock || 0), 0) || 0;
-          const threshold = settings?.low_stock_threshold || 10;
           if (totalStock === 0) {
             newAlerts.push({ 
               border: "border-error", iconBg: "bg-error-container", iconColor: "text-error", icon: "warning", 
@@ -136,9 +159,10 @@ export default function Dashboard() {
             });
           }
         });
+        
+        console.log('[Dashboard] Stock alerts generated:', newAlerts.length);
         setAlerts(newAlerts.slice(0, 3)); // Show top 3 alerts
       }
-      // 3. Profile data is now handled by fetchSettings
 
       // 4. Set Badge if there are alerts
       const lastReadStr = localStorage.getItem('mobistock_notifications_read_at');
@@ -158,7 +182,9 @@ export default function Dashboard() {
       }
 
     } catch (e) {
-      console.error("Dashboard Fetch Error:", e);
+      console.error("[Dashboard] Fetch Error:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,148 +241,192 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {/* Today's Sales */}
-        <motion.div
-          {...scaleIn(0.1)}
-          whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.45)" }}
-          transition={{ type: "spring", stiffness: 280, damping: 20 }}
-          className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-[2rem] p-8 shadow-[0_20px_40px_-10px_rgba(15,23,42,0.15)] flex flex-col justify-between min-h-[200px] cursor-pointer"
-        >
-          <div className="flex justify-between items-start">
-            <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-primary/70">Today&apos;s Sales</div>
-            <span className="material-symbols-outlined text-on-primary/70">receipt_long</span>
+      {/* Metrics & Content Sections */}
+      {loading ? (
+        <>
+          {/* Metric Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="bg-surface-container-low animate-pulse rounded-[2rem] p-8 min-h-[200px] border border-outline-variant/10"
+              />
+            ))}
           </div>
-          <div>
-            <div className="text-5xl font-bold tracking-tight mb-2">{formatCurrency(metrics.todaySales, settings)}</div>
-            <div className="flex items-center gap-2 text-sm text-tertiary-fixed font-semibold">
-              <span className="material-symbols-outlined text-sm">trending_up</span>
-              Updated just now
-            </div>
-          </div>
-        </motion.div>
 
-        {/* Total Revenue */}
-        <motion.div
-          {...scaleIn(0.2)}
-          whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.35)" }}
-          transition={{ type: "spring", stiffness: 280, damping: 20 }}
-          className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[200px] cursor-pointer"
-        >
-          <div className="flex justify-between items-start">
-            <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-surface-variant font-semibold">Total Revenue</div>
-            <span className="material-symbols-outlined text-on-surface-variant">account_balance_wallet</span>
-          </div>
-          <div>
-            <div className="text-4xl font-bold tracking-tight text-primary mb-2">{formatCurrency(metrics.totalRevenue, settings)}</div>
-            <div className="flex items-center gap-2 text-sm text-emerald-600 font-semibold">
-              <span className="material-symbols-outlined text-sm">arrow_upward</span>
-              Lifetime Earnings
-            </div>
-          </div>
-        </motion.div>
-
-
-        {/* Total Profit */}
-        <motion.div
-          {...scaleIn(0.3)}
-          whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.35)" }}
-          transition={{ type: "spring", stiffness: 280, damping: 20 }}
-          className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[200px] cursor-pointer"
-        >
-          <div className="flex justify-between items-start">
-            <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-surface-variant font-semibold">Total Profit</div>
-            <span className="material-symbols-outlined text-on-surface-variant">monitoring</span>
-          </div>
-          <div>
-            <div className="text-4xl font-bold tracking-tight text-primary mb-2">{formatCurrency(metrics.totalProfit, settings)}</div>
-            <div className="flex items-center gap-2 text-sm text-amber-600 font-semibold">
-              <span className="material-symbols-outlined text-sm">trending_flat</span>
-              Est. Profit (30%)
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Best Selling Products */}
-        <motion.div {...fadeUp(0.35)} className="lg:col-span-2">
-          <h3 className="text-xl font-bold text-primary mb-6">Best Selling Products</h3>
-          <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
-            {filteredProducts.length > 0 ? filteredProducts.map((item, i) => (
-              <motion.div
-                key={item.sku}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 + i * 0.1, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
-                whileHover={{ x: 6, boxShadow: "6px 0 24px -6px rgba(111,251,190,0.35)" }}
-                onClick={() => setDetailProduct(item)}
-                className="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-6 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.02)] min-h-[80px] cursor-pointer"
-              >
-                <motion.img whileHover={{ scale: 1.1 }} transition={{ duration: 0.25 }} alt={item.alt} className="w-16 h-16 rounded-lg object-cover" src={item.img}/>
-                <div className="flex-1">
-                  <h4 className="font-bold text-primary text-lg">{item.title}</h4>
-                  <p className="text-sm text-on-surface-variant">{item.sku}</p>
-                </div>
-                <div className="text-right whitespace-nowrap">
-                  <div className="font-bold text-primary text-xl">{item.sales}</div>
-                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Units Sold</p>
-                </div>
-              </motion.div>
-            )) : (
-              <div className="text-center py-8 text-on-surface-variant">
-                <span className="material-symbols-outlined text-3xl mb-2 opacity-50">search_off</span>
-                <p className="font-medium">No products match your search.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Best Sellers Skeleton */}
+            <div className="lg:col-span-2">
+              <div className="h-6 w-48 bg-surface-container-low animate-pulse rounded mb-6" />
+              <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-surface-container-lowest animate-pulse rounded-xl p-4 min-h-[80px] border border-outline-variant/5"
+                  />
+                ))}
               </div>
-            )}
-          </div>
-        </motion.div>
+            </div>
 
-        {/* Alerts Section */}
-        <motion.div {...fadeUp(0.45)}>
-          <h3 className="text-xl font-bold text-primary mb-6 flex items-center gap-2">
-            Attention Required
-            {showBadge && (
-              <motion.span
-                animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
-                transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-                className="w-2 h-2 rounded-full bg-error ml-1 inline-block"
-              ></motion.span>
-            )}
-          </h3>
-          <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
-            {alerts.length > 0 ? alerts.map((alert) => (
-              <motion.div
-                key={alert.title}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: alert.delay, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
-                whileHover={{ x: -4, scale: 1.01 }}
-                className={`bg-surface-container-lowest rounded-xl p-5 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.02)] border-l-4 ${alert.border} cursor-pointer`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-full ${alert.iconBg} ${alert.iconColor} flex items-center justify-center shrink-0`}>
-                    <span className="material-symbols-outlined">{alert.icon}</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold uppercase tracking-wider ${alert.badgeBg} px-2 py-0.5 rounded-sm`}>{alert.badge}</span>
+            {/* Alerts Skeleton */}
+            <div>
+              <div className="h-6 w-48 bg-surface-container-low animate-pulse rounded mb-6" />
+              <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
+                {[...Array(2)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-surface-container-lowest animate-pulse rounded-xl p-5 min-h-[100px] border border-outline-variant/5"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Metric Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {/* Today's Sales */}
+            <motion.div
+              {...scaleIn(0.1)}
+              whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.45)" }}
+              transition={{ type: "spring", stiffness: 280, damping: 20 }}
+              className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-[2rem] p-8 shadow-[0_20px_40px_-10px_rgba(15,23,42,0.15)] flex flex-col justify-between min-h-[200px] cursor-pointer"
+            >
+              <div className="flex justify-between items-start">
+                <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-primary/70">Today&apos;s Sales</div>
+                <span className="material-symbols-outlined text-on-primary/70">receipt_long</span>
+              </div>
+              <div>
+                <div className="text-5xl font-bold tracking-tight mb-2">{formatCurrency(metrics.todaySales, settings)}</div>
+                <div className="flex items-center gap-2 text-sm text-tertiary-fixed font-semibold">
+                  <span className="material-symbols-outlined text-sm">trending_up</span>
+                  Updated just now
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Total Revenue */}
+            <motion.div
+              {...scaleIn(0.2)}
+              whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.35)" }}
+              transition={{ type: "spring", stiffness: 280, damping: 20 }}
+              className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[200px] cursor-pointer"
+            >
+              <div className="flex justify-between items-start">
+                <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-surface-variant font-semibold">Total Revenue</div>
+                <span className="material-symbols-outlined text-on-surface-variant">account_balance_wallet</span>
+              </div>
+              <div>
+                <div className="text-4xl font-bold tracking-tight text-primary mb-2">{formatCurrency(metrics.totalRevenue, settings)}</div>
+                <div className="flex items-center gap-2 text-sm text-emerald-600 font-semibold">
+                  <span className="material-symbols-outlined text-sm">arrow_upward</span>
+                  Lifetime Earnings
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Total Profit */}
+            <motion.div
+              {...scaleIn(0.3)}
+              whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.35)" }}
+              transition={{ type: "spring", stiffness: 280, damping: 20 }}
+              className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.05)] flex flex-col justify-between min-h-[200px] cursor-pointer"
+            >
+              <div className="flex justify-between items-start">
+                <div className="font-['Manrope'] text-sm tracking-widest uppercase text-on-surface-variant font-semibold">Total Profit</div>
+                <span className="material-symbols-outlined text-on-surface-variant">monitoring</span>
+              </div>
+              <div>
+                <div className="text-4xl font-bold tracking-tight text-primary mb-2">{formatCurrency(metrics.totalProfit, settings)}</div>
+                <div className="flex items-center gap-2 text-sm text-amber-600 font-semibold">
+                  <span className="material-symbols-outlined text-sm">trending_flat</span>
+                  Est. Profit (30%)
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Best Selling Products */}
+            <motion.div {...fadeUp(0.35)} className="lg:col-span-2">
+              <h3 className="text-xl font-bold text-primary mb-6">Best Selling Products</h3>
+              <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
+                {filteredProducts.length > 0 ? filteredProducts.map((item, i) => (
+                  <motion.div
+                    key={item.sku}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.4 + i * 0.1, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
+                    whileHover={{ x: 6, boxShadow: "6px 0 24px -6px rgba(111,251,190,0.35)" }}
+                    onClick={() => setDetailProduct(item)}
+                    className="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-6 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.02)] min-h-[80px] cursor-pointer"
+                  >
+                    <motion.img whileHover={{ scale: 1.1 }} transition={{ duration: 0.25 }} alt={item.alt} className="w-16 h-16 rounded-lg object-cover" src={item.img}/>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-primary text-lg">{item.title}</h4>
+                      <p className="text-sm text-on-surface-variant">{item.sku}</p>
                     </div>
-                    <h4 className="font-bold text-primary text-md">{alert.title}</h4>
-                    <p className="text-sm text-on-surface-variant mt-1">{alert.desc}</p>
+                    <div className="text-right whitespace-nowrap">
+                      <div className="font-bold text-primary text-xl">{item.sales}</div>
+                      <p className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Units Sold</p>
+                    </div>
+                  </motion.div>
+                )) : (
+                  <div className="text-center py-8 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-3xl mb-2 opacity-50">search_off</span>
+                    <p className="font-medium">No products match your search.</p>
                   </div>
-                </div>
-              </motion.div>
-            )) : (
-              <div className="py-12 text-center text-on-surface-variant/40">
-                <span className="material-symbols-outlined text-4xl mb-2">check_circle</span>
-                <p className="font-bold">All inventory levels are healthy.</p>
+                )}
               </div>
-            )}
+            </motion.div>
+
+            {/* Alerts Section */}
+            <motion.div {...fadeUp(0.45)}>
+              <h3 className="text-xl font-bold text-primary mb-6 flex items-center gap-2">
+                Attention Required
+                {showBadge && (
+                  <motion.span
+                    animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                    className="w-2 h-2 rounded-full bg-error ml-1 inline-block"
+                  ></motion.span>
+                )}
+              </h3>
+              <div className="bg-surface-container-low rounded-[2rem] p-4 flex flex-col gap-4">
+                {alerts.length > 0 ? alerts.map((alert) => (
+                  <motion.div
+                    key={alert.title}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: alert.delay, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
+                    whileHover={{ x: -4, scale: 1.01 }}
+                    className={`bg-surface-container-lowest rounded-xl p-5 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.02)] border-l-4 ${alert.border} cursor-pointer`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`w-10 h-10 rounded-full ${alert.iconBg} ${alert.iconColor} flex items-center justify-center shrink-0`}>
+                        <span className="material-symbols-outlined">{alert.icon}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs font-bold uppercase tracking-wider ${alert.badgeBg} px-2 py-0.5 rounded-sm`}>{alert.badge}</span>
+                        </div>
+                        <h4 className="font-bold text-primary text-md">{alert.title}</h4>
+                        <p className="text-sm text-on-surface-variant mt-1">{alert.desc}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )) : (
+                  <div className="py-12 text-center text-on-surface-variant/40">
+                    <span className="material-symbols-outlined text-4xl mb-2">check_circle</span>
+                    <p className="font-bold">All inventory levels are healthy.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
-      </div>
+        </>
+      )}
     </main>
 
     <AnimatePresence>

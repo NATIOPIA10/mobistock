@@ -26,22 +26,26 @@ export default function Inventory() {
 
   useEffect(() => {
     setMounted(true);
-    // Fetch inventory immediately — don't wait for settings
-    fetchInventory();
-    // Also load settings in background
-    fetchSettings();
+    
+    (async () => {
+      // 1. Fetch settings first to ensure threshold is populated before computing low stock
+      let activeSettings = null;
+      try {
+        const { data } = await supabase.from('store_settings').select('*').limit(1).maybeSingle();
+        if (data) {
+          setSettings(data);
+          activeSettings = data;
+        }
+      } catch (e) {
+        console.warn("[Inventory] Settings fetch failed (non-critical):", e);
+      }
+
+      // 2. Fetch inventory using the loaded settings
+      await fetchInventory(activeSettings);
+    })();
   }, []);
 
-  const fetchSettings = async () => {
-    try {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).maybeSingle();
-      if (data) setSettings(data);
-    } catch (e) {
-      console.warn("Settings fetch failed (non-critical):", e);
-    }
-  };
-
-  const fetchInventory = async () => {
+  const fetchInventory = async (activeSettings?: any) => {
     setIsLoading(true);
     setFetchError(null);
     try {
@@ -54,57 +58,45 @@ export default function Inventory() {
         .select('*')
         .eq('owner_id', userId);
 
-if (prodError) {
-  setFetchError(`DB Error ${status}: ${prodError.message} – ${prodError.hint || prodError.details || ''}`);
-  console.error('[Inventory] Product fetch error:', prodError);
-  setIsLoading(false);
-  return;
-}
-
-if (!products || products.length === 0) {
-  console.warn('[Inventory] No products returned. Possible empty table or RLS block.');
-  setItems([]);
-  setStats({ totalItems: 0, lowStock: 0, totalValue: 0 });
-  setIsLoading(false);
-  return;
-}
-
-// Fetch all variants for these products in a single query
-const productIds = products.map((p) => p.id);
-const { data: variants, error: varError } = await supabase
-  .from('variants')
-  .select('*')
-  .in('product_id', productIds);
-
-if (varError) {
-  setFetchError(`DB Error fetching variants: ${varError.message}`);
-  console.error('[Inventory] Variant fetch error:', varError);
-  setIsLoading(false);
-  return;
-}
-
-// Attach variants to their parent products
-const data = products.map((p) => {
-  return { ...p, variants: variants?.filter((v) => v.product_id === p.id) || [] };
-});
-
-      console.log("[Inventory] Response:", { status, statusText, rowCount: data?.length, varError });
-
-      if (varError) {
-        setFetchError(`DB Error ${status}: ${(varError as any).message} — ${(varError as any).hint || (varError as any).details || ''}`);
-        console.error("[Inventory] Supabase error:", varError);
+      if (prodError) {
+        setFetchError(`DB Error ${status}: ${prodError.message} – ${prodError.hint || prodError.details || ''}`);
+        console.error('[Inventory] Product fetch error:', prodError);
+        setIsLoading(false);
         return;
       }
 
-      if (!data || data.length === 0) {
-        console.warn("[Inventory] Query returned 0 rows. Possible RLS block or empty table.");
+      if (!products || products.length === 0) {
+        console.warn('[Inventory] No products returned. Possible empty table or RLS block.');
         setItems([]);
         setStats({ totalItems: 0, lowStock: 0, totalValue: 0 });
+        setIsLoading(false);
         return;
       }
+
+      // Fetch all variants for these products in a single query
+      const productIds = products.map((p) => p.id);
+      const { data: variants, error: varError } = await supabase
+        .from('variants')
+        .select('*')
+        .in('product_id', productIds);
+
+      if (varError) {
+        setFetchError(`DB Error fetching variants: ${varError.message}`);
+        console.error('[Inventory] Variant fetch error:', varError);
+        setIsLoading(false);
+        return;
+      }
+
+      // Attach variants to their parent products
+      const data = products.map((p) => {
+        return { ...p, variants: variants?.filter((v) => v.product_id === p.id) || [] };
+      });
 
       let totalVal = 0;
       let lowS = 0;
+      const currentSettings = activeSettings || settings;
+      const threshold = currentSettings?.low_stock_threshold || 10;
+      console.log('[Inventory] Using low stock threshold:', threshold);
 
       const formatted = data.map((p: any) => {
         const variants = p.variants || [];
@@ -114,8 +106,7 @@ const data = products.map((p) => {
         const maxPrice = prices.length ? Math.max(...prices) : 0;
 
         totalVal += variants.reduce((sum: number, v: any) => sum + ((v.stock || 0) * (v.price || 0)), 0);
-        const threshold = settings?.low_stock_threshold || 10;
-        if (totalStock > 0 && totalStock < threshold) lowS++;
+        if (totalStock < threshold) lowS++;
 
         return {
           id: p.id,
@@ -124,13 +115,13 @@ const data = products.map((p) => {
           title: p.title,
           name: `${p.brand} ${p.title}`,
           category: p.category,
-          status: totalStock === 0 ? "out-of-stock" : totalStock < (settings?.low_stock_threshold || 10) ? "low-stock" : "in-stock",
+          status: totalStock === 0 ? "out-of-stock" : totalStock < threshold ? "low-stock" : "in-stock",
           variantCount: variants.length,
           variants: variants,
           stock: totalStock,
           price: minPrice === maxPrice
-            ? formatCurrency(minPrice, settings)
-            : `${formatCurrency(minPrice, settings)} - ${formatCurrency(maxPrice, settings)}`,
+            ? formatCurrency(minPrice, currentSettings)
+            : `${formatCurrency(minPrice, currentSettings)} - ${formatCurrency(maxPrice, currentSettings)}`,
           img: p.image_url
         };
       });
@@ -224,13 +215,15 @@ const data = products.map((p) => {
 
   const handleStatusChange = async (sku: string, status: string) => {
     try {
+      // FIX: products table has no 'status' column; use 'is_archived' for suspend/archive
+      const isArchived = status === 'suspended';
       const { error } = await supabase
         .from('products')
-        .update({ status: status }) // Assuming a status column exists or adding one
+        .update({ is_archived: isArchived })
         .eq('sku', sku);
-      
+
       if (error) throw error;
-      
+
       setItems(items.map(item => item.sku === sku ? { ...item, status } : item));
       setActiveMenuId(null);
       alert(`Product marked as ${status}.`);
