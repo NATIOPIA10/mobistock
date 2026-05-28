@@ -86,8 +86,8 @@ BEGIN
     new.id,
     new.email,
     -- First registered user OR superadmin email is automatically approved & superadmin
-    (is_first OR new.email = 'superadmin@mobistock.com'),
-    (is_first OR new.email = 'superadmin@mobistock.com')
+    (is_first OR new.email = 'natnaeltsedeke7@gmail.com'),
+    (is_first OR new.email = 'natnaeltsedeke7@gmail.com')
   );
   RETURN new;
 END;
