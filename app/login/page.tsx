@@ -70,8 +70,8 @@ export default function Login() {
             transition={{ delay: 0.2 }}
             className="mb-10"
           >
-            <div className="w-20 h-20 bg-primary rounded-3xl mx-auto flex items-center justify-center shadow-2xl shadow-primary/30 mb-6 rotate-3 hover:rotate-0 transition-transform duration-500">
-              <span className="material-symbols-outlined text-on-primary text-4xl font-bold">shield_person</span>
+            <div className="w-20 h-20 rounded-3xl mx-auto overflow-hidden shadow-2xl shadow-primary/30 mb-6 rotate-3 hover:rotate-0 transition-transform duration-500">
+              <img src="/icon.png" alt="MobiStock Pro" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-3xl font-black tracking-tighter text-primary">MobiStock Pro</h1>
             <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">{isSignUp ? "Create Administrator Account" : "The Digital Concierge"}</p>
