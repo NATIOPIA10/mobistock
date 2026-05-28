@@ -40,7 +40,9 @@ export default function Orders() {
 
   const fetchSettings = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
       if (data) setSettings(data);
     } catch (e) {
       console.error("Orders Settings Error:", e);

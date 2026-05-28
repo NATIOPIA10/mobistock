@@ -39,13 +39,12 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
   const fetchStoreName = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('id', 1).single();
-      if (data?.store_name) setStoreName(data.store_name);
-      if (data?.admin_photo) setAdminPhoto(data.admin_photo);
-
-      // Check if user is superadmin
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('owner_id', user.id).maybeSingle();
+        if (data?.store_name) setStoreName(data.store_name);
+        if (data?.admin_photo) setAdminPhoto(data.admin_photo);
+
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('is_superadmin')

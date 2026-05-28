@@ -32,7 +32,9 @@ export default function Notifications() {
 
   const fetchNotifications = async () => {
     try {
-      const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: settings } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
       const { data: products } = await supabase.from('products').select('*, variants(*)');
       const { data: orders } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5);
 

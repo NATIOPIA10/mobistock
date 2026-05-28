@@ -55,7 +55,7 @@ export default function Dashboard() {
       const { data: settingsData, error: settingsErr } = await supabase
         .from('store_settings')
         .select('*')
-        .limit(1)
+        .eq('owner_id', user.id)
         .maybeSingle();
       
       console.log('[Dashboard] Settings fetched:', settingsData, settingsErr);

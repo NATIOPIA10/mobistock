@@ -19,7 +19,9 @@ export default function Profile() {
 
   const fetchProfile = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
       if (data) {
         if (data.admin_photo) setProfileImage(data.admin_photo);
         if (data.store_name) setAdminName(data.store_name);

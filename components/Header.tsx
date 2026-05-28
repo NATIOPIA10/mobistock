@@ -26,7 +26,9 @@ export default function Header({ onMenuOpen }: HeaderProps) {
 
   const fetchHeaderData = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('owner_id', user.id).maybeSingle();
       if (data?.store_name) setStoreName(data.store_name);
       if (data?.admin_photo) setAdminPhoto(data.admin_photo);
     } catch (e) {
@@ -36,7 +38,9 @@ export default function Header({ onMenuOpen }: HeaderProps) {
 
   const fetchUnreadCount = async () => {
     try {
-      const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: settings } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
       const { data: products } = await supabase.from('products').select('*, variants(*)');
       const { data: orders } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5);
 

@@ -111,8 +111,11 @@ export default function Settings() {
 
       // 4. Restore Settings if available
       if (backup.settings) {
-        const { error: sError } = await supabase.from('store_settings').upsert({ id: 1, ...backup.settings });
-        if (sError) throw sError;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: sError } = await supabase.from('store_settings').upsert({ owner_id: user.id, ...backup.settings });
+          if (sError) throw sError;
+        }
       }
 
       await supabase.from('security_logs').insert({
@@ -245,7 +248,8 @@ export default function Settings() {
     try {
       const { data: products } = await supabase.from('products').select('*, variants(*)');
       const { data: variants } = await supabase.from('variants').select('*');
-      const { data: settingsData } = await supabase.from('store_settings').select('*').eq('id', 1).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: settingsData } = await supabase.from('store_settings').select('*').eq('owner_id', user?.id).maybeSingle();
       const { data: orders } = await supabase.from('orders').select('*');
       const { data: orderItems } = await supabase.from('order_items').select('*');
       const { data: logs } = await supabase.from('security_logs').select('*');
@@ -485,11 +489,13 @@ export default function Settings() {
 
   const fetchSettings = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data, error } = await supabase
         .from('store_settings')
         .select('*')
-        .eq('id', 1)
-        .single();
+        .eq('owner_id', user.id)
+        .maybeSingle();
       
         if (data) {
           setStoreName(data.store_name || storeName);
@@ -526,6 +532,8 @@ export default function Settings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { error } = await supabase
         .from('store_settings')
         .update({
@@ -547,7 +555,7 @@ export default function Settings() {
           require_pin_for_delete: requirePinForDelete,
           updated_at: new Date().toISOString()
         })
-        .eq('id', 1);
+        .eq('owner_id', user.id);
 
       if (error) throw error;
       
