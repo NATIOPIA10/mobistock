@@ -256,8 +256,8 @@ export default function POS() {
   };
 
   return (
-    <main className="flex-1 md:ml-72 flex gap-6 pt-24 md:pt-8 px-6 pb-6 min-h-screen relative">
-      <section className="flex-1 flex flex-col min-w-0 bg-surface rounded-3xl shadow-[inset_0_0_0_1px_rgba(198,198,205,0.15)] overflow-hidden">
+    <main className="flex-1 md:ml-72 flex gap-4 pt-20 md:pt-6 px-6 pb-6 h-screen max-h-screen overflow-hidden relative">
+      <section className="flex-1 flex flex-col min-w-0 bg-surface rounded-3xl shadow-[inset_0_0_0_1px_rgba(198,198,205,0.15)] h-full max-h-full overflow-hidden">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}

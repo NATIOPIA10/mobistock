@@ -6,34 +6,34 @@ import { formatCurrency, convertAmount } from "@/lib/currency";
 
 function OrderSummary({ subtotal, discountAmt, tax, total, settings, itemCount, paymentMethod, onUpdatePaymentMethod }: { subtotal: number; discountAmt: number; tax: number; total: number; settings: any; itemCount: number; paymentMethod: string; onUpdatePaymentMethod: (method: string) => void }) {
   return (
-    <div className="space-y-3 mb-8">
-      <div className="flex justify-between items-center text-sm font-bold text-on-surface-variant/60 uppercase tracking-widest">
+    <div className="space-y-2 mb-4">
+      <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant/60 uppercase tracking-widest">
         <span>Subtotal ({itemCount} items)</span>
         <span className="font-headline text-on-surface font-black">{formatCurrency(subtotal, settings)}</span>
       </div>
       {discountAmt > 0 && (
-        <div className="flex justify-between items-center text-sm font-bold text-emerald-600 uppercase tracking-widest">
+        <div className="flex justify-between items-center text-xs font-bold text-emerald-600 uppercase tracking-widest">
           <span>Discount</span>
           <span className="font-headline font-black">- {formatCurrency(discountAmt, settings)}</span>
         </div>
       )}
-      <div className="flex justify-between items-center text-sm font-bold text-on-surface-variant/60 uppercase tracking-widest">
+      <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant/60 uppercase tracking-widest">
         <span>Tax ({settings?.tax_rate || 15}%)</span>
         <span className="font-headline text-on-surface font-black">{formatCurrency(tax, settings)}</span>
       </div>
-      <div className="flex justify-between border-t border-outline-variant/20 pt-4 mt-2">
-        <span className="text-xs font-black uppercase tracking-widest text-primary">Total Amount</span>
-        <span className="font-headline font-black text-primary text-xl">{formatCurrency(total, settings)}</span>
+      <div className="flex justify-between border-t border-outline-variant/20 pt-2.5 mt-1.5">
+        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Total Amount</span>
+        <span className="font-headline font-black text-primary text-lg">{formatCurrency(total, settings)}</span>
       </div>
       {/* Payment Method Selection */}
-      <div className="mt-4 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/10">
-        <span className="text-sm font-bold text-on-surface-variant uppercase">Payment Method</span>
-        <div className="flex gap-2 mt-2">
+      <div className="mt-2.5 p-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/10">
+        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Payment Method</span>
+        <div className="flex gap-1.5 mt-1.5">
           {['cash','card','transfer'].map((m) => (
             <button
               key={m}
               onClick={() => onUpdatePaymentMethod(m)}
-              className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${paymentMethod === m ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface hover:bg-surface-dim'}`}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${paymentMethod === m ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface hover:bg-surface-dim'}`}
             >
               {m.charAt(0).toUpperCase() + m.slice(1)}
             </button>
@@ -118,60 +118,60 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
           ? 'fixed right-0 top-0 bottom-0 w-full sm:w-[420px] z-[90] flex shadow-2xl' 
           : 'hidden lg:flex w-[420px]'
         }
-        bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex-col relative flex-shrink-0 border border-outline-variant/10 max-h-[900px] lg:max-h-none overflow-y-auto h-full lg:h-auto
+        bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex flex-col relative flex-shrink-0 border border-outline-variant/10 h-full max-h-full overflow-hidden
       `}>
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary-container to-primary opacity-80 z-20"></div>
 
         {/* Header */}
-        <div className="p-8 pb-4 flex justify-between items-start bg-surface-container-lowest z-10">
+        <div className="p-6 pb-2 flex justify-between items-start bg-surface-container-lowest z-10 shrink-0">
           <div>
-            <h2 className="font-headline font-black text-3xl tracking-tighter text-primary mb-1">Current Sale</h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></span>
-              <p className="text-sm text-on-surface-variant font-bold uppercase tracking-widest">{ticketNo}</p>
+            <h2 className="font-headline font-black text-2xl tracking-tighter text-primary mb-0.5">Current Sale</h2>
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed animate-pulse"></span>
+              <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">{ticketNo}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {cart.length > 0 && (
-              <button onClick={onClear} className="w-10 h-10 rounded-xl bg-error/5 text-error hover:bg-error hover:text-on-error transition-all flex items-center justify-center">
-                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+              <button onClick={onClear} className="w-9 h-9 rounded-xl bg-error/5 text-error hover:bg-error hover:text-on-error transition-all flex items-center justify-center">
+                <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
               </button>
             )}
             {onCloseMobile && (
-              <button onClick={onCloseMobile} className="lg:hidden w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-surface-dim transition-all">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button onClick={onCloseMobile} className="lg:hidden w-9 h-9 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-surface-dim transition-all">
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             )}
           </div>
         </div>
 
       {/* FIX: Customer inputs are now their own closed section, not wrapping everything below */}
-      <div className="px-8 pb-4 space-y-3">
+      <div className="px-6 pb-2 space-y-2 shrink-0">
         <div className="relative group">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-lg group-focus-within:text-primary transition-colors">person</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-base group-focus-within:text-primary transition-colors">person</span>
           <input
             type="text"
             value={customerName}
             onChange={(e) => onUpdateCustomerName(e.target.value)}
             placeholder="Customer Name (Optional)"
-            className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-primary outline-none ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/20 transition-all"
+            className="w-full bg-surface-container-low rounded-xl py-2 pl-9 pr-4 text-xs font-bold text-primary outline-none ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/20 transition-all"
           />
         </div>
         <div className="relative group">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-lg group-focus-within:text-primary transition-colors">call</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-base group-focus-within:text-primary transition-colors">call</span>
           <input
             type="tel"
             value={customerPhone}
             onChange={(e) => onUpdateCustomerPhone(e.target.value)}
             placeholder="Phone Number (Optional)"
-            className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-primary outline-none ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/20 transition-all"
+            className="w-full bg-surface-container-low rounded-xl py-2 pl-9 pr-4 text-xs font-bold text-primary outline-none ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/20 transition-all"
           />
         </div>
       </div>
       {/* END of customer inputs — cart items are now siblings, not children */}
 
       {/* Cart Items */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar max-h-[360px]">
+      <div className="flex-1 overflow-y-auto px-6 py-2 space-y-3 custom-scrollbar">
         <AnimatePresence mode="popLayout">
           {cart.length === 0 ? (
             <motion.div
@@ -249,14 +249,14 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
       </div>
 
       {/* Discount Selector — FIX: onUpdateDiscount was passed as prop but never rendered */}
-      <div className="px-6 py-4 border-t border-outline-variant/10">
-        <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Discount (%)</label>
-        <div className="flex flex-wrap gap-2">
+      <div className="px-6 py-3 border-t border-outline-variant/10 shrink-0">
+        <label className="block text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-1.5">Discount (%)</label>
+        <div className="flex flex-wrap gap-1.5">
           {discountOptions.map((d: string) => (
             <button
               key={d}
               onClick={() => onUpdateDiscount(Number(d))}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+              className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
                 discount === Number(d)
                 ? "bg-primary text-on-primary border-primary shadow-md"
                 : "bg-surface-container-highest text-on-surface border-transparent hover:bg-surface-dim"
@@ -269,25 +269,25 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
       </div>
 
       {/* Order Summary */}
-      <div className="px-6 pt-2">
+      <div className="px-6 pt-1 shrink-0">
         <OrderSummary subtotal={subtotal} discountAmt={discountAmt} tax={tax} total={total} settings={settings} itemCount={cart.length} paymentMethod={paymentMethod} onUpdatePaymentMethod={onUpdatePaymentMethod} />
       </div>
 
       {/* Charge Button */}
-      <div className="px-6 pb-6">
+      <div className="px-6 pb-4 shrink-0">
         <button
           disabled={cart.length === 0}
           onClick={onCharge}
-          className={`w-full relative overflow-hidden rounded-[1.5rem] group shadow-2xl transition-all duration-300 transform active:scale-[0.98] ${cart.length === 0 ? 'grayscale cursor-not-allowed' : 'cursor-pointer hover:shadow-primary/25'}`}
+          className={`w-full relative overflow-hidden rounded-[1.25rem] group shadow-xl transition-all duration-300 transform active:scale-[0.98] ${cart.length === 0 ? 'grayscale cursor-not-allowed' : 'cursor-pointer hover:shadow-primary/25'}`}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container to-primary z-0"></div>
-          <div className="relative z-10 px-6 py-6 flex items-center justify-between">
+          <div className="relative z-10 px-5 py-4 flex items-center justify-between">
             <div className="flex flex-col text-left">
-              <span className="text-on-primary/50 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Confirm Sale</span>
-              <span className="text-on-primary font-headline font-black text-2xl tracking-tighter leading-none">Charge Order</span>
+              <span className="text-on-primary/50 text-[9px] font-black uppercase tracking-[0.2em] mb-0.5">Confirm Sale</span>
+              <span className="text-on-primary font-headline font-black text-xl tracking-tighter leading-none">Charge Order</span>
             </div>
-            <div className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:bg-white/20 transition-all group-hover:translate-x-1">
-              <span className="material-symbols-outlined text-on-primary text-2xl">arrow_forward</span>
+            <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:bg-white/20 transition-all group-hover:translate-x-1">
+              <span className="material-symbols-outlined text-on-primary text-xl">arrow_forward</span>
             </div>
           </div>
         </button>
