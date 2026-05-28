@@ -51,7 +51,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const sidebarContent = (
     <aside
       className={`
-        flex flex-col h-screen w-72 bg-slate-50 dark:bg-slate-950 py-8 border-r border-slate-200/60 dark:border-slate-800/60 z-50
+        flex flex-col h-screen w-72 bg-slate-50 dark:bg-slate-950 py-8 border-r border-slate-200/60 dark:border-slate-800/60 z-[70]
         /* Desktop: always visible as fixed left panel */
         md:fixed md:left-0 md:top-0 md:translate-x-0
         /* Mobile: fixed, slide in from left */
@@ -150,7 +150,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* Mobile backdrop overlay */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+          className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]"
           onClick={onClose}
           aria-hidden="true"
         />

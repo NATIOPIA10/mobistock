@@ -16,6 +16,7 @@ export default function Inventory() {
   const [mounted, setMounted] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterType, setFilterType] = useState<"all" | "low-stock">("all");
 
   // Real Metrics
   const [stats, setStats] = useState({ totalItems: 0, lowStock: 0, totalValue: 0 });
@@ -258,10 +259,15 @@ export default function Inventory() {
     }
   };
 
-  const filteredItems = items.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    item.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          item.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    if (filterType === "low-stock") {
+      const threshold = settings?.low_stock_threshold || 10;
+      return matchesSearch && item.stock < threshold;
+    }
+    return matchesSearch;
+  });
 
   if (!mounted) return null;
 
@@ -295,11 +301,12 @@ export default function Inventory() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             {/* Total Products */}
             <motion.div
+              onClick={() => setFilterType("all")}
               initial={{ opacity: 0, scale: 0.93 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
               whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.45)" }}
-              className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_20px_40px_-10px_rgba(25,28,30,0.05)] border border-outline-variant/15 flex flex-col justify-between cursor-pointer"
+              className={`bg-surface-container-lowest rounded-xl p-8 shadow-[0_20px_40px_-10px_rgba(25,28,30,0.05)] border transition-all duration-300 flex flex-col justify-between cursor-pointer ${filterType === "all" ? "border-primary ring-2 ring-primary/20 shadow-lg" : "border-outline-variant/15"}`}
             >
               <div className="flex justify-between items-start mb-6">
                 <span className="material-symbols-outlined text-3xl text-secondary">inventory_2</span>
@@ -322,11 +329,12 @@ export default function Inventory() {
 
             {/* Low Stock Alert */}
             <motion.div
+              onClick={() => setFilterType(filterType === "low-stock" ? "all" : "low-stock")}
               initial={{ opacity: 0, scale: 0.93 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.45, delay: 0.2, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
               whileHover={{ y: -6, boxShadow: "0 20px 48px -8px rgba(111,251,190,0.45)" }}
-              className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_20px_40px_-10px_rgba(25,28,30,0.05)] border border-outline-variant/15 flex flex-col justify-between relative overflow-hidden cursor-pointer"
+              className={`bg-surface-container-lowest rounded-xl p-8 shadow-[0_20px_40px_-10px_rgba(25,28,30,0.05)] border transition-all duration-300 flex flex-col justify-between relative overflow-hidden cursor-pointer ${filterType === "low-stock" ? "border-amber-500 ring-2 ring-amber-500/20 shadow-lg" : "border-outline-variant/15"}`}
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full -mr-8 -mt-8"></div>
               <div className="flex justify-between items-start mb-6 relative z-10">
@@ -337,6 +345,11 @@ export default function Inventory() {
                 >
                   warning
                 </motion.span>
+                {filterType === "low-stock" && (
+                  <span className="bg-amber-500 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider relative z-20">
+                    Filtering
+                  </span>
+                )}
               </div>
               <div className="relative z-10">
                 <p className="text-on-surface-variant text-sm uppercase tracking-wider font-semibold mb-1">Low Stock Items</p>
@@ -384,7 +397,19 @@ export default function Inventory() {
               transition={{ duration: 0.4, delay: 0.4, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
               className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"
             >
-              <h3 className="text-2xl font-bold tracking-tight text-primary">Current Catalog</h3>
+              <div className="flex flex-col gap-1 w-full sm:w-auto text-left">
+                <h3 className="text-2xl font-bold tracking-tight text-primary">
+                  {filterType === "low-stock" ? "Low Stock Items" : "Current Catalog"}
+                </h3>
+                {filterType === "low-stock" && (
+                  <button
+                    onClick={() => setFilterType("all")}
+                    className="text-xs text-amber-600 hover:text-amber-700 font-bold flex items-center gap-1 mt-1 transition-colors uppercase tracking-wider w-fit"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">close</span> Show All Products
+                  </button>
+                )}
+              </div>
               <div className="relative w-full sm:w-96">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
                 <input
