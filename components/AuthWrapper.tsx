@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "@/components/Sidebar";
@@ -14,17 +14,24 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
+  // Keep a ref so the one-time auth effect can always read the latest pathname
+  // without being re-triggered by pathname changes.
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
         .single();
-      
+
       if (error) {
-        console.warn("Could not fetch user profile (table might not exist yet):", error.message);
-        // Default to approved = true to avoid breaking backward compatibility
+        // Table may not exist yet — default to approved so existing users aren't blocked
+        console.warn("Could not fetch user profile:", error.message);
         return { approved: true, is_superadmin: false };
       }
       return data;
@@ -34,84 +41,91 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     }
   };
 
-  useEffect(() => {
-    let active = true;
+  const handleSession = async (session: any, active: { value: boolean }) => {
+    if (session) {
+      const userProfile = await fetchProfile(session.user.id);
+      if (!active.value) return;
 
-    // Check current session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!active) return;
+      setProfile(userProfile);
       setSession(session);
-      
-      if (session) {
-        // Fetch user profile status
-        const userProfile = await fetchProfile(session.user.id);
-        if (active) {
-          setProfile(userProfile);
-          setIsLoading(false);
+      setIsLoading(false);
 
-          // Handle redirection based on approval status
-          if (!userProfile.approved && pathname !== "/approval-pending" && pathname !== "/login") {
-            router.push("/approval-pending");
-          } else if (userProfile.approved && pathname === "/approval-pending") {
-            router.push("/");
-          } else if (pathname.startsWith("/superadmin") && !userProfile.is_superadmin) {
-            router.push("/");
-          }
-        }
+      const currentPath = pathnameRef.current;
 
-        // Log login event (only if not already logged in this tab session)
-        const loggedIn = sessionStorage.getItem('mobistock_login_logged');
-        if (!loggedIn) {
-          supabase.from('security_logs').insert({
+      if (!userProfile.approved && currentPath !== "/approval-pending" && currentPath !== "/login") {
+        router.push("/approval-pending");
+      } else if (userProfile.approved && currentPath === "/approval-pending") {
+        router.push("/");
+      } else if (currentPath.startsWith("/superadmin") && !userProfile.is_superadmin) {
+        router.push("/");
+      }
+
+      // Log login (once per tab session)
+      const loggedIn = sessionStorage.getItem("mobistock_login_logged");
+      if (!loggedIn) {
+        supabase
+          .from("security_logs")
+          .insert({
             event: "User Login",
             details: `Admin authenticated via ${session.user.email}`,
-            status: "success"
-          }).then(() => sessionStorage.setItem('mobistock_login_logged', 'true'));
-        }
-      } else {
-        if (active) {
-          setIsLoading(false);
-          if (pathname !== "/login" && pathname !== "/approval-pending") {
-            router.push("/login");
-          }
-        }
+            status: "success",
+          })
+          .then(() => sessionStorage.setItem("mobistock_login_logged", "true"));
       }
-    });
+    } else {
+      if (!active.value) return;
+      setSession(null);
+      setProfile(null);
+      setIsLoading(false);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active) return;
-      setSession(session);
-      
-      if (session) {
-        const userProfile = await fetchProfile(session.user.id);
-        if (active) {
-          setProfile(userProfile);
-          if (!userProfile.approved && pathname !== "/approval-pending" && pathname !== "/login") {
-            router.push("/approval-pending");
-          } else if (userProfile.approved && pathname === "/approval-pending") {
-            router.push("/");
-          } else if (pathname.startsWith("/superadmin") && !userProfile.is_superadmin) {
-            router.push("/");
-          }
-        }
-      } else {
-        if (active) {
-          setProfile(null);
-          if (pathname !== "/login" && pathname !== "/approval-pending") {
-            router.push("/login");
-          }
-        }
+      const currentPath = pathnameRef.current;
+      if (currentPath !== "/login" && currentPath !== "/approval-pending") {
+        router.push("/login");
       }
+    }
+  };
+
+  // Run ONCE on mount — no pathname/router in deps to avoid re-trigger loops
+  useEffect(() => {
+    const active = { value: true };
+
+    // Safety net: never stay on loading screen longer than 10 seconds
+    const timeout = setTimeout(() => {
+      if (active.value) {
+        console.warn("Auth timed out — defaulting to unauthenticated");
+        setIsLoading(false);
+      }
+    }, 10000);
+
+    // Resolve current session
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => handleSession(session, active))
+      .catch((err) => {
+        console.error("getSession error:", err);
+        if (active.value) {
+          setIsLoading(false);
+          const currentPath = pathnameRef.current;
+          if (currentPath !== "/login") router.push("/login");
+        }
+      });
+
+    // Listen for future auth state changes (login / logout)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session, active);
     });
 
     return () => {
-      active = false;
+      active.value = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [router, pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // <-- intentionally empty: run once on mount only
 
-  // Close mobile sidebar when route changes
+  // Close mobile sidebar on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [pathname]);
@@ -124,27 +138,21 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     );
   }
 
-  // If on login or approval-pending page, show the page content without sidebar/header
+  // Auth/approval pages — no sidebar/header
   if (pathname === "/login" || pathname === "/approval-pending") {
     return <>{children}</>;
   }
 
-  // If not logged in and not on login page, show nothing (redirecting)
-  if (!session) {
-    return null;
-  }
+  // Not logged in
+  if (!session) return null;
 
-  // If logged in but not approved, show nothing (redirecting to /approval-pending)
-  if (profile && !profile.approved) {
-    return null;
-  }
+  // Logged in but not yet approved
+  if (profile && !profile.approved) return null;
 
-  // If trying to access superadmin but not a superadmin, show nothing (redirecting)
-  if (pathname.startsWith("/superadmin") && profile && !profile.is_superadmin) {
-    return null;
-  }
+  // Non-superadmin trying to access /superadmin
+  if (pathname.startsWith("/superadmin") && profile && !profile.is_superadmin) return null;
 
-  // Logged in and approved: show sidebar, header and content
+  // Fully authenticated & approved
   return (
     <>
       <Sidebar
