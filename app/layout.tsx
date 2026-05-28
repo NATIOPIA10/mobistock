@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
-// Manrope import removed (handled via Google Fonts link)
 import "./globals.css";
-
 import AuthWrapper from "@/components/AuthWrapper";
-
-// const manrope = Manrope({ subsets: ["latin"], display: 'swap' });
 
 export const metadata: Metadata = {
   title: "MobiStock",
   description: "MobiStock Pro - The Digital Concierge",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/icon-192.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
