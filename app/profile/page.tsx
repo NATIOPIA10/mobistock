@@ -8,7 +8,7 @@ export default function Profile() {
   const [mounted, setMounted] = useState(false);
   const [profileImage, setProfileImage] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBrf_bs_Dipvf-vLWdzzampJDmFNvCTRnXbE8OJ7vD8S6itF5C2DrXG5HF_ujutax2SzIbygEXHd86EPo1jAiQqiX6GJ-FWijbw7k5PULUIaNEEoyUjB_7g_oTeiFkaHZ2nhW4Cy8sfoZH2QE0zOiVgJzuxeAiGI6iI7QMvjiCZm4U6s6UljdssaYdhYsGdnWkkzMK3QKLnAC0qa48atYSdXhwKiBcEr2tUB32pCp0An7QtnIUD83qljFGpCfpC3ZccGozPHzm7Kok");
   const [adminName, setAdminName] = useState("Store Admin");
-  const [adminEmail, setAdminEmail] = useState("admin@precision.com");
+  const [adminEmail, setAdminEmail] = useState("admin@mobistock.com");
   const [adminPhone, setAdminPhone] = useState("+251 911 223 344");
   const fileInputRef = useRef<HTMLInputElement>(null);
 

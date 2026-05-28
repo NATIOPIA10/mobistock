@@ -7,7 +7,7 @@ import AuthWrapper from "@/components/AuthWrapper";
 // const manrope = Manrope({ subsets: ["latin"], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: "Precision Atelier",
+  title: "MobiStock",
   description: "MobiStock Pro - The Digital Concierge",
 };
 

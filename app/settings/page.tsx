@@ -18,8 +18,8 @@ export default function Settings() {
   const [mounted, setMounted] = useState(false);
 
   // General Settings State
-  const [storeName, setStoreName] = useState("Precision Atelier");
-  const [email, setEmail] = useState("admin@precision.com");
+  const [storeName, setStoreName] = useState("MobiStock");
+  const [email, setEmail] = useState("admin@mobistock.com");
   const [phone, setPhone] = useState("+251 911 234 567");
   const [address, setAddress] = useState("Bole, Addis Ababa, Ethiopia");
   const [adminPhoto, setAdminPhoto] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBrf_bs_Dipvf-vLWdzzampJDmFNvCTRnXbE8OJ7vD8S6itF5C2DrXG5HF_ujutax2SzIbygEXHd86EPo1jAiQqiX6GJ-FWijbw7k5PULUIaNEEoyUjB_7g_oTeiFkaHZ2nhW4Cy8sfoZH2QE0zOiVgJzuxeAiGI6iI7QMvjiCZm4U6s6UljdssaYdhYsGdnWkkzMK3QKLnAC0qa48atYSdXhwKiBcEr2tUB32pCp0An7QtnIUD83qljFGpCfpC3ZccGozPHzm7Kok");

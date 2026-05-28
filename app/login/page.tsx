@@ -86,7 +86,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-transparent focus:border-primary/30"
-                placeholder="admin@precision.com"
+                placeholder="admin@mobistock.com"
               />
             </div>
 
