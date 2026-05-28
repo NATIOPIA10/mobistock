@@ -256,7 +256,7 @@ export default function POS() {
   };
 
   return (
-    <main className="flex-1 md:ml-72 flex gap-6 pt-24 md:pt-8 px-6 pb-6 overflow-hidden h-full relative">
+    <main className="flex-1 md:ml-72 flex gap-6 pt-24 md:pt-8 px-6 pb-6 min-h-screen relative">
       <section className="flex-1 flex flex-col min-w-0 bg-surface rounded-3xl shadow-[inset_0_0_0_1px_rgba(198,198,205,0.15)] overflow-hidden">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -355,14 +355,15 @@ export default function POS() {
       />
 
       {/* Floating Cart Button for Mobile */}
-      <div className="lg:hidden fixed bottom-6 right-6 z-40">
+      <div className="lg:hidden fixed bottom-6 right-6 z-[70]">
         <button
           onClick={() => setIsCartOpenMobile(true)}
-          className="relative w-16 h-16 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 active:scale-95 transition-all"
+          className="relative flex items-center gap-3 bg-gradient-to-br from-primary to-primary-container text-on-primary px-5 py-4 rounded-full shadow-[0_8px_32px_-4px_rgba(19,27,46,0.45)] font-bold text-sm active:scale-95 transition-transform"
         >
-          <span className="material-symbols-outlined text-3xl">shopping_cart</span>
+          <span className="material-symbols-outlined text-[22px]">shopping_cart</span>
+          <span>Current Sale</span>
           {cart.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-6 h-6 bg-error text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md animate-bounce">
+            <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-error text-on-error text-xs font-black flex items-center justify-center shadow-md">
               {cart.reduce((sum, item) => sum + item.qty, 0)}
             </span>
           )}
