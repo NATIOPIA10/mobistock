@@ -24,6 +24,7 @@ export default function QuickSale() {
   const [customer, setCustomer] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [receipt, setReceipt] = useState(false);
+  const [isOrderOpen, setIsOrderOpen] = useState(false);
   const [ticketNo, setTicketNo] = useState("");
   const [note, setNote] = useState("");
   // FIX: Removed unused userId state (was declared but setUserId was never called)
@@ -298,6 +299,22 @@ export default function QuickSale() {
           </div>
         </motion.div>
 
+        {/* Mobile Order Summary FAB */}
+        <div className="xl:hidden fixed bottom-6 right-6 z-[70]">
+          <button
+            onClick={() => setIsOrderOpen(true)}
+            className="relative flex items-center gap-3 bg-gradient-to-br from-primary to-primary-container text-on-primary px-5 py-4 rounded-full shadow-[0_8px_32px_-4px_rgba(19,27,46,0.45)] font-bold text-sm active:scale-95 transition-transform"
+          >
+            <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+            <span>Order Summary</span>
+            {cart.length > 0 && (
+              <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-error text-on-error text-xs font-black flex items-center justify-center shadow-md">
+                {cart.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* LEFT: Product Search + Cart */}
           <div className="flex flex-col gap-6">
@@ -367,12 +384,34 @@ export default function QuickSale() {
           </div>
 
           {/* RIGHT: Order Summary (compact) */}
+          {/* Mobile backdrop */}
+          {isOrderOpen && (
+            <div
+              className="xl:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[80]"
+              onClick={() => setIsOrderOpen(false)}
+            />
+          )}
           <motion.aside
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-            className="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden relative max-h-[900px] overflow-y-auto p-4 space-y-4"
+            className={`
+              ${isOrderOpen
+                ? 'fixed right-0 top-0 bottom-0 w-full sm:w-[420px] z-[90] flex flex-col shadow-2xl'
+                : 'hidden xl:flex xl:flex-col'
+              }
+              bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden relative overflow-y-auto p-4 space-y-4
+            `}
           >
+            {/* Mobile close button */}
+            {isOrderOpen && (
+              <button
+                onClick={() => setIsOrderOpen(false)}
+                className="xl:hidden absolute top-4 right-4 z-10 w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-surface-dim transition-all"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            )}
             <div className="p-4 border-b border-outline-variant/10">
               <h3 className="text-lg font-bold text-primary">Order Summary</h3>
               <p className="text-xs text-on-surface-variant mt-0.5">{cart.length} item{cart.length !== 1 ? "s" : ""} in cart</p>

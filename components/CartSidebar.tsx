@@ -73,9 +73,11 @@ interface CartSidebarProps {
   onRemove: (sku: string) => void;
   onClear: () => void;
   onCharge: () => void;
+  isOpenMobile?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export default function CartSidebar({ cart, settings, discount, onUpdateQty, onUpdatePrice, onUpdateDiscount, customerName, onUpdateCustomerName, customerPhone, onUpdateCustomerPhone, paymentMethod, onUpdatePaymentMethod, onToggleTax, onRemove, onClear, onCharge }: CartSidebarProps) {
+export default function CartSidebar({ cart, settings, discount, onUpdateQty, onUpdatePrice, onUpdateDiscount, customerName, onUpdateCustomerName, customerPhone, onUpdateCustomerPhone, paymentMethod, onUpdatePaymentMethod, onToggleTax, onRemove, onClear, onCharge, isOpenMobile = false, onCloseMobile }: CartSidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [ticketNo, setTicketNo] = useState("");
 
@@ -103,25 +105,45 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
   const discountOptions = (settings?.discount_options || "0,5,10,15,20").split(',').map((d: string) => d.trim());
 
   return (
-    // FIX: Removed conflicting `overflow-hidden` — it was blocking `overflow-y-auto` scrolling
-    <aside className="hidden lg:flex w-[420px] bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex-col relative flex-shrink-0 border border-outline-variant/10 max-h-[900px] overflow-y-auto">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary-container to-primary opacity-80 z-20"></div>
+    <>
+      {/* Mobile backdrop overlay */}
+      {isOpenMobile && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[80]"
+          onClick={onCloseMobile}
+        />
+      )}
+      <aside className={`
+        ${isOpenMobile 
+          ? 'fixed right-0 top-0 bottom-0 w-full sm:w-[420px] z-[90] flex shadow-2xl' 
+          : 'hidden lg:flex w-[420px]'
+        }
+        bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(25,28,30,0.12)] flex-col relative flex-shrink-0 border border-outline-variant/10 max-h-[900px] lg:max-h-none overflow-y-auto h-full lg:h-auto
+      `}>
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-primary-container to-primary opacity-80 z-20"></div>
 
-      {/* Header */}
-      <div className="p-8 pb-4 flex justify-between items-start bg-surface-container-lowest z-10">
-        <div>
-          <h2 className="font-headline font-black text-3xl tracking-tighter text-primary mb-1">Current Sale</h2>
+        {/* Header */}
+        <div className="p-8 pb-4 flex justify-between items-start bg-surface-container-lowest z-10">
+          <div>
+            <h2 className="font-headline font-black text-3xl tracking-tighter text-primary mb-1">Current Sale</h2>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></span>
+              <p className="text-sm text-on-surface-variant font-bold uppercase tracking-widest">{ticketNo}</p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></span>
-            <p className="text-sm text-on-surface-variant font-bold uppercase tracking-widest">{ticketNo}</p>
+            {cart.length > 0 && (
+              <button onClick={onClear} className="w-10 h-10 rounded-xl bg-error/5 text-error hover:bg-error hover:text-on-error transition-all flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+              </button>
+            )}
+            {onCloseMobile && (
+              <button onClick={onCloseMobile} className="lg:hidden w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface hover:bg-surface-dim transition-all">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            )}
           </div>
         </div>
-        {cart.length > 0 && (
-          <button onClick={onClear} className="w-10 h-10 rounded-xl bg-error/5 text-error hover:bg-error hover:text-on-error transition-all flex items-center justify-center">
-            <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
-          </button>
-        )}
-      </div>
 
       {/* FIX: Customer inputs are now their own closed section, not wrapping everything below */}
       <div className="px-8 pb-4 space-y-3">
@@ -271,5 +293,6 @@ export default function CartSidebar({ cart, settings, discount, onUpdateQty, onU
         </button>
       </div>
     </aside>
+    </>
   );
 }

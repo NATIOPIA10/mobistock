@@ -22,6 +22,7 @@ export default function POS() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [settings, setSettings] = useState<any>(null);
   const [customerName, setCustomerName] = useState("");
+  const [isCartOpenMobile, setIsCartOpenMobile] = useState(false);
 
   // Derived categories from settings
   const categories = ["All Products", ...(settings?.product_categories?.split(',').map((c: string) => c.trim()) || ["Phones", "Tablets", "Wearables", "Accessories"])];
@@ -349,7 +350,24 @@ export default function POS() {
         onRemove={handleRemoveItem}
         onClear={handleClearCart}
         onCharge={handleCharge}
+        isOpenMobile={isCartOpenMobile}
+        onCloseMobile={() => setIsCartOpenMobile(false)}
       />
+
+      {/* Floating Cart Button for Mobile */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => setIsCartOpenMobile(true)}
+          className="relative w-16 h-16 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-3xl">shopping_cart</span>
+          {cart.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-6 h-6 bg-error text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md animate-bounce">
+              {cart.reduce((sum, item) => sum + item.qty, 0)}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Product Detail Popup */}
       <AnimatePresence>
