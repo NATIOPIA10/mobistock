@@ -23,6 +23,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const router = useRouter();
   const [storeName, setStoreName] = useState("MobiStock");
   const [adminPhoto, setAdminPhoto] = useState<string | null>(null);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
 
   useEffect(() => {
     fetchStoreName();
@@ -41,6 +42,17 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('id', 1).single();
       if (data?.store_name) setStoreName(data.store_name);
       if (data?.admin_photo) setAdminPhoto(data.admin_photo);
+
+      // Check if user is superadmin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_superadmin')
+          .eq('id', user.id)
+          .single();
+        if (profile) setIsSuperadmin(profile.is_superadmin);
+      }
     } catch (e) {
       console.error("Sidebar Sync Error:", e);
     }
@@ -131,6 +143,27 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
           <span className="material-symbols-outlined" style={{ fontVariationSettings: pathname === "/settings" ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
           Settings
         </Link>
+
+        {/* Superadmin Console Link — visible only to superadmins */}
+        {isSuperadmin && (
+          <Link
+            href="/superadmin"
+            className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
+              pathname.startsWith("/superadmin")
+                ? "bg-purple-700 text-white shadow-lg"
+                : "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+            }`}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: pathname.startsWith("/superadmin") ? "'FILL' 1" : "'FILL' 0" }}
+            >
+              shield_person
+            </span>
+            Superadmin
+          </Link>
+        )}
+
         <button
           onClick={async () => {
             await supabase.auth.signOut();

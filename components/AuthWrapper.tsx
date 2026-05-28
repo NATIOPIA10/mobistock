@@ -8,18 +8,57 @@ import Header from "@/components/Header";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.warn("Could not fetch user profile (table might not exist yet):", error.message);
+        // Default to approved = true to avoid breaking backward compatibility
+        return { approved: true, is_superadmin: false };
+      }
+      return data;
+    } catch (e) {
+      console.warn("Exception fetching user profile:", e);
+      return { approved: true, is_superadmin: false };
+    }
+  };
+
   useEffect(() => {
+    let active = true;
+
     // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!active) return;
       setSession(session);
-      setIsLoading(false);
       
       if (session) {
+        // Fetch user profile status
+        const userProfile = await fetchProfile(session.user.id);
+        if (active) {
+          setProfile(userProfile);
+          setIsLoading(false);
+
+          // Handle redirection based on approval status
+          if (!userProfile.approved && pathname !== "/approval-pending" && pathname !== "/login") {
+            router.push("/approval-pending");
+          } else if (userProfile.approved && pathname === "/approval-pending") {
+            router.push("/");
+          } else if (pathname.startsWith("/superadmin") && !userProfile.is_superadmin) {
+            router.push("/");
+          }
+        }
+
         // Log login event (only if not already logged in this tab session)
         const loggedIn = sessionStorage.getItem('mobistock_login_logged');
         if (!loggedIn) {
@@ -29,22 +68,47 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
             status: "success"
           }).then(() => sessionStorage.setItem('mobistock_login_logged', 'true'));
         }
-      }
-
-      if (!session && pathname !== "/login") {
-        router.push("/login");
+      } else {
+        if (active) {
+          setIsLoading(false);
+          if (pathname !== "/login" && pathname !== "/approval-pending") {
+            router.push("/login");
+          }
+        }
       }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
       setSession(session);
-      if (!session && pathname !== "/login") {
-        router.push("/login");
+      
+      if (session) {
+        const userProfile = await fetchProfile(session.user.id);
+        if (active) {
+          setProfile(userProfile);
+          if (!userProfile.approved && pathname !== "/approval-pending" && pathname !== "/login") {
+            router.push("/approval-pending");
+          } else if (userProfile.approved && pathname === "/approval-pending") {
+            router.push("/");
+          } else if (pathname.startsWith("/superadmin") && !userProfile.is_superadmin) {
+            router.push("/");
+          }
+        }
+      } else {
+        if (active) {
+          setProfile(null);
+          if (pathname !== "/login" && pathname !== "/approval-pending") {
+            router.push("/login");
+          }
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [router, pathname]);
 
   // Close mobile sidebar when route changes
@@ -60,8 +124,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     );
   }
 
-  // If on login page, just show the login page content without sidebar
-  if (pathname === "/login") {
+  // If on login or approval-pending page, show the page content without sidebar/header
+  if (pathname === "/login" || pathname === "/approval-pending") {
     return <>{children}</>;
   }
 
@@ -70,7 +134,17 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return null;
   }
 
-  // Logged in: show sidebar, header and content
+  // If logged in but not approved, show nothing (redirecting to /approval-pending)
+  if (profile && !profile.approved) {
+    return null;
+  }
+
+  // If trying to access superadmin but not a superadmin, show nothing (redirecting)
+  if (pathname.startsWith("/superadmin") && profile && !profile.is_superadmin) {
+    return null;
+  }
+
+  // Logged in and approved: show sidebar, header and content
   return (
     <>
       <Sidebar
