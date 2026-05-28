@@ -256,7 +256,7 @@ export default function QuickSale() {
           <p className="text-center text-xs text-on-surface-variant mb-6">Paid via <strong className="capitalize">{payMethod}</strong></p>
 
           <div className="flex gap-3">
-            <button onClick={() => { setCart([]); setReceipt(false); setCustomer(""); setDiscount(0); setNote(""); }} className="flex-1 py-4 rounded-2xl bg-surface-container-highest text-on-surface font-bold hover:bg-surface-dim transition-colors">
+            <button onClick={() => { setCart([]); setReceipt(false); setCustomer(""); setDiscount(0); setNote(""); setIsOrderOpen(false); }} className="flex-1 py-4 rounded-2xl bg-surface-container-highest text-on-surface font-bold hover:bg-surface-dim transition-colors">
               New Sale
             </button>
             <button onClick={() => window.print()} className="flex-1 py-4 rounded-2xl bg-primary text-on-primary font-bold flex items-center justify-center gap-2 shadow-md">
@@ -395,7 +395,13 @@ export default function QuickSale() {
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-            className={`${isOrderOpen ? 'fixed right-0 top-0 bottom-0 w-full sm:w-[420px] z-[90] flex flex-col shadow-2xl' : 'hidden'} xl:flex xl:flex-col bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden relative overflow-y-auto p-4 space-y-4`}
+            className={`
+              bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden overflow-y-auto p-4 space-y-4
+              ${isOrderOpen 
+                ? 'fixed right-0 top-0 bottom-0 w-full sm:w-[420px] z-[90] flex flex-col shadow-2xl' 
+                : 'hidden xl:flex xl:flex-col xl:relative xl:w-[420px]'
+              }
+            `}
           >
             {/* Mobile close button */}
             {isOrderOpen && (
