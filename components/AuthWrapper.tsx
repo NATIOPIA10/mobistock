@@ -55,8 +55,10 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       if (!userProfile.approved && currentPath !== "/approval-pending" && currentPath !== "/login") {
         router.push("/approval-pending");
       } else if (userProfile.approved && currentPath === "/approval-pending") {
-        router.push("/");
-      } else if (currentPath.startsWith("/superadmin") && !userProfile.is_superadmin) {
+        router.push(userProfile.is_superadmin ? "/superadmin" : "/");
+      } else if (userProfile.is_superadmin && currentPath !== "/superadmin" && currentPath !== "/login" && currentPath !== "/approval-pending") {
+        router.push("/superadmin");
+      } else if (!userProfile.is_superadmin && currentPath.startsWith("/superadmin")) {
         router.push("/");
       }
 
@@ -148,6 +150,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   // Logged in but not yet approved
   if (profile && !profile.approved) return null;
+
+  // Superadmin trying to access non-superadmin pages
+  if (profile && profile.is_superadmin && pathname !== "/superadmin" && pathname !== "/login" && pathname !== "/approval-pending") {
+    return null;
+  }
 
   // Non-superadmin trying to access /superadmin
   if (pathname.startsWith("/superadmin") && profile && !profile.is_superadmin) return null;

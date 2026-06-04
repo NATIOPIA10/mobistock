@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const navLinks = [
+const ownerNavLinks = [
   { href: "/", label: "Dashboard", icon: "dashboard" },
   { href: "/inventory", label: "Inventory", icon: "inventory_2" },
   { href: "/pos", label: "POS Terminal", icon: "point_of_sale" },
@@ -24,6 +24,10 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const [storeName, setStoreName] = useState("MobiStock");
   const [adminPhoto, setAdminPhoto] = useState<string | null>(null);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
+
+  const navLinks = isSuperadmin ? [
+    { href: "/superadmin", label: "Admin Console", icon: "shield_person" }
+  ] : ownerNavLinks;
 
   useEffect(() => {
     fetchStoreName();
@@ -82,28 +86,36 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* Brand */}
       <div className="px-8 mb-8 flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold text-xl shadow-lg shrink-0 overflow-hidden">
-          {adminPhoto ? (
+          {isSuperadmin ? (
+            <span className="material-symbols-outlined text-[24px]">shield_person</span>
+          ) : adminPhoto ? (
             <img src={adminPhoto} alt={storeName} className="w-full h-full object-cover" />
           ) : (
             storeName.charAt(0)
           )}
         </div>
         <div>
-          <h1 className="text-lg font-black text-slate-900 dark:text-slate-50 leading-tight">{storeName}</h1>
-          <p className="font-['Manrope'] text-xs tracking-widest uppercase font-semibold text-slate-500 dark:text-slate-400">Admin Mode</p>
+          <h1 className="text-lg font-black text-slate-900 dark:text-slate-50 leading-tight">
+            {isSuperadmin ? "MobiStock Admin" : storeName}
+          </h1>
+          <p className="font-['Manrope'] text-xs tracking-widest uppercase font-semibold text-slate-500 dark:text-slate-400">
+            {isSuperadmin ? "System Mode" : "Admin Mode"}
+          </p>
         </div>
       </div>
 
       {/* Quick Sale CTA */}
-      <div className="px-5 mb-6">
-        <button
-          onClick={() => { router.push("/quick-sale"); }}
-          className={`w-full py-3.5 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-all text-sm tracking-wide uppercase ${pathname === "/quick-sale" ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:opacity-90"}`}
-        >
-          <span className="material-symbols-outlined text-[20px]">add</span>
-          New Quick Sale
-        </button>
-      </div>
+      {!isSuperadmin && (
+        <div className="px-5 mb-6">
+          <button
+            onClick={() => { router.push("/quick-sale"); }}
+            className={`w-full py-3.5 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-all text-sm tracking-wide uppercase ${pathname === "/quick-sale" ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:opacity-90"}`}
+          >
+            <span className="material-symbols-outlined text-[20px]">add</span>
+            New Quick Sale
+          </button>
+        </div>
+      )}
 
       {/* Main Nav */}
       <nav className="flex-1 flex flex-col gap-1 px-2">
@@ -133,33 +145,15 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
       {/* Bottom Nav */}
       <div className="flex flex-col gap-1 px-2 mt-4 pt-4 border-t border-outline-variant/15">
-        <Link
-          href="/settings"
-          className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
-            pathname === "/settings" ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-lg" : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
-        >
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: pathname === "/settings" ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
-          Settings
-        </Link>
-
-        {/* Superadmin Console Link — visible only to superadmins */}
-        {isSuperadmin && (
+        {!isSuperadmin && (
           <Link
-            href="/superadmin"
+            href="/settings"
             className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
-              pathname.startsWith("/superadmin")
-                ? "bg-purple-700 text-white shadow-lg"
-                : "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              pathname === "/settings" ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-lg" : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontVariationSettings: pathname.startsWith("/superadmin") ? "'FILL' 1" : "'FILL' 0" }}
-            >
-              shield_person
-            </span>
-            Superadmin
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: pathname === "/settings" ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
+            Settings
           </Link>
         )}
 

@@ -9,6 +9,7 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"owner" | "admin">("owner");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function Login() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              is_superadmin: role === "admin"
+            }
+          }
         });
         if (error) throw error;
         alert("Success! Please check your email for the confirmation link (or just try logging in if email confirmation is disabled).");
@@ -101,6 +107,38 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
+
+            {isSignUp && (
+              <div className="space-y-2 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Account Role</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setRole("owner")}
+                    className={`p-4 rounded-2xl border text-center font-bold text-sm transition-all flex flex-col items-center gap-2 ${
+                      role === "owner"
+                        ? "bg-primary/10 border-primary text-primary shadow-sm"
+                        : "bg-surface-container-low border-transparent text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">storefront</span>
+                    <span>Store Owner</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("admin")}
+                    className={`p-4 rounded-2xl border text-center font-bold text-sm transition-all flex flex-col items-center gap-2 ${
+                      role === "admin"
+                        ? "bg-primary/10 border-primary text-primary shadow-sm"
+                        : "bg-surface-container-low border-transparent text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">shield_person</span>
+                    <span>System Admin</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {error && (
               <motion.p
