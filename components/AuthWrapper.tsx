@@ -32,12 +32,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       if (error) {
         // Table may not exist yet — default to approved so existing users aren't blocked
         console.warn("Could not fetch user profile:", error.message);
-        return { approved: true, is_superadmin: false };
+        return { approved: true };
       }
       return data;
     } catch (e) {
       console.warn("Exception fetching user profile:", e);
-      return { approved: true, is_superadmin: false };
+      return { approved: true };
     }
   };
 
@@ -52,13 +52,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
       const currentPath = pathnameRef.current;
 
+      // Not yet approved → send to pending page
       if (!userProfile.approved && currentPath !== "/approval-pending" && currentPath !== "/login") {
         router.push("/approval-pending");
-      } else if (userProfile.approved && currentPath === "/approval-pending") {
-        router.push(userProfile.is_superadmin ? "/superadmin" : "/");
-      } else if (userProfile.is_superadmin && currentPath !== "/superadmin" && currentPath !== "/login" && currentPath !== "/approval-pending") {
-        router.push("/superadmin");
-      } else if (!userProfile.is_superadmin && currentPath.startsWith("/superadmin")) {
+      }
+      // Approved and sitting on pending page → go to dashboard
+      else if (userProfile.approved && currentPath === "/approval-pending") {
         router.push("/");
       }
 
@@ -69,7 +68,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
           .from("security_logs")
           .insert({
             event: "User Login",
-            details: `Admin authenticated via ${session.user.email}`,
+            details: `Owner authenticated via ${session.user.email}`,
             status: "success",
           })
           .then(() => sessionStorage.setItem("mobistock_login_logged", "true"));
@@ -151,15 +150,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // Logged in but not yet approved
   if (profile && !profile.approved) return null;
 
-  // Superadmin trying to access non-superadmin pages
-  if (profile && profile.is_superadmin && pathname !== "/superadmin" && pathname !== "/login" && pathname !== "/approval-pending") {
-    return null;
-  }
-
-  // Non-superadmin trying to access /superadmin
-  if (pathname.startsWith("/superadmin") && profile && !profile.is_superadmin) return null;
-
-  // Fully authenticated & approved
+  // Fully authenticated & approved — show full owner layout
   return (
     <>
       <Sidebar

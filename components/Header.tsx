@@ -9,19 +9,20 @@ interface HeaderProps {
 
 export default function Header({ onMenuOpen }: HeaderProps) {
   const [storeName, setStoreName] = useState("MobiStock");
-  const [adminPhoto, setAdminPhoto] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuDIoRf5OT0Xv5_Q5xZ6E1TF1pRZpFzjGHf-9ijnMJbuBvavusurRdjHlG_4VdFI8LBrdRmJ_lvGRiuZaJA3g8lbEn2u_GQHphwDhu2xu27mDzdrNz5hVxkS9BRF-Zpvn2bUKKPMocToLS6xNdALfuBTQLHbofrWXA9C0YOGsxnINVE8tuMk5ZqSMJNPW6_L317aZ1kjhCqFRZ-3XdlfvsY74GO16wkj9slN_AMDyRYXjOT-Ax-nuBqnyIS7tNl4kMC84Z02rxEv1ww");
+  const [adminPhoto, setAdminPhoto] = useState(
+    "https://lh3.googleusercontent.com/aida-public/AB6AXuDIoRf5OT0Xv5_Q5xZ6E1TF1pRZpFzjGHf-9ijnMJbuBvavusurRdjHlG_4VdFI8LBrdRmJ_lvGRiuZaJA3g8lbEn2u_GQHphwDhu2xu27mDzdrNz5hVxkS9BRF-Zpvn2bUKKPMocToLS6xNdALfuBTQLHbofrWXA9C0YOGsxnINVE8tuMk5ZqSMJNPW6_L317aZ1kjhCqFRZ-3XdlfvsY74GO16wkj9slN_AMDyRYXjOT-Ax-nuBqnyIS7tNl4kMC84Z02rxEv1ww"
+  );
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isSuperadmin, setIsSuperadmin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     fetchHeaderData();
     fetchUnreadCount();
-    window.addEventListener('mobistock_settings_updated', fetchHeaderData);
-    window.addEventListener('mobistock_notifications_read', fetchUnreadCount);
+    window.addEventListener("mobistock_settings_updated", fetchHeaderData);
+    window.addEventListener("mobistock_notifications_read", fetchUnreadCount);
     return () => {
-      window.removeEventListener('mobistock_settings_updated', fetchHeaderData);
-      window.removeEventListener('mobistock_notifications_read', fetchUnreadCount);
+      window.removeEventListener("mobistock_settings_updated", fetchHeaderData);
+      window.removeEventListener("mobistock_notifications_read", fetchUnreadCount);
     };
   }, []);
 
@@ -30,19 +31,11 @@ export default function Header({ onMenuOpen }: HeaderProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('is_superadmin')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.is_superadmin) {
-        setIsSuperadmin(true);
-        setStoreName("System Admin");
-        return;
-      }
-
-      const { data } = await supabase.from('store_settings').select('store_name, admin_photo').eq('owner_id', user.id).maybeSingle();
+      const { data } = await supabase
+        .from("store_settings")
+        .select("store_name, admin_photo")
+        .eq("owner_id", user.id)
+        .maybeSingle();
       if (data?.store_name) setStoreName(data.store_name);
       if (data?.admin_photo) setAdminPhoto(data.admin_photo);
     } catch (e) {
@@ -55,21 +48,21 @@ export default function Header({ onMenuOpen }: HeaderProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('is_superadmin')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.is_superadmin) return;
-
-      const { data: settings } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
-      const { data: products } = await supabase.from('products').select('*, variants(*)');
-      const { data: orders } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5);
+      const { data: settings } = await supabase
+        .from("store_settings")
+        .select("*")
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      const { data: products } = await supabase.from("products").select("*, variants(*)");
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5);
 
       let count = 0;
       const threshold = settings?.low_stock_threshold || 10;
-      const readAt = localStorage.getItem('mobistock_notifications_read_at');
+      const readAt = localStorage.getItem("mobistock_notifications_read_at");
       const readTime = readAt ? new Date(readAt) : null;
 
       if (settings?.notify_low_stock !== false) {
@@ -114,39 +107,35 @@ export default function Header({ onMenuOpen }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {!isSuperadmin && (
-          <>
-            {/* Notification Bell */}
-            <button
-              onClick={handleNotificationsClick}
-              className="relative w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all duration-200"
-              aria-label="Notifications"
-            >
-              <span
-                className="material-symbols-outlined text-slate-700 dark:text-slate-300"
-                style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}
-              >
-                notifications
+        {/* Notification Bell */}
+        <button
+          onClick={handleNotificationsClick}
+          className="relative w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all duration-200"
+          aria-label="Notifications"
+        >
+          <span
+            className="material-symbols-outlined text-slate-700 dark:text-slate-300"
+            style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}
+          >
+            notifications
+          </span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-error rounded-full flex items-center justify-center">
+              <span className="text-white text-[10px] font-bold leading-none">
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-error rounded-full flex items-center justify-center">
-                  <span className="text-white text-[10px] font-bold leading-none">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                </span>
-              )}
-            </button>
+            </span>
+          )}
+        </button>
 
-            {/* Settings */}
-            <button
-              onClick={() => router.push("/settings")}
-              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all duration-200"
-              aria-label="Settings"
-            >
-              <span className="material-symbols-outlined text-slate-700 dark:text-slate-300" style={{ fontVariationSettings: "'FILL' 0" }}>settings</span>
-            </button>
-          </>
-        )}
+        {/* Settings */}
+        <button
+          onClick={() => router.push("/settings")}
+          className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all duration-200"
+          aria-label="Settings"
+        >
+          <span className="material-symbols-outlined text-slate-700 dark:text-slate-300" style={{ fontVariationSettings: "'FILL' 0" }}>settings</span>
+        </button>
 
         {/* Logout */}
         <button

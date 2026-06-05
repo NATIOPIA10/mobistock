@@ -9,7 +9,6 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"owner" | "admin">("owner");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -33,12 +32,14 @@ export default function Login() {
           password,
           options: {
             data: {
-              is_superadmin: role === "admin"
-            }
-          }
+              is_superadmin: false,
+            },
+          },
         });
         if (error) throw error;
-        alert("Success! Please check your email for the confirmation link (or just try logging in if email confirmation is disabled).");
+        alert(
+          "Success! Your account is pending approval. You will be notified once an existing owner approves your access."
+        );
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -80,24 +81,30 @@ export default function Login() {
               <img src="/icon.png" alt="MobiStock Pro" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-3xl font-black tracking-tighter text-primary">MobiStock Pro</h1>
-            <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">{isSignUp ? "Create Administrator Account" : "The Digital Concierge"}</p>
+            <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">
+              {isSignUp ? "Create Store Owner Account" : "The Digital Concierge"}
+            </p>
           </motion.div>
 
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2 text-left">
-              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Email Address</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">
+                Email Address
+              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-surface-container-low rounded-2xl py-4 px-6 text-on-surface outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-transparent focus:border-primary/30"
-                placeholder="admin@mobistock.com"
+                placeholder="owner@mystore.com"
               />
             </div>
 
             <div className="space-y-2 text-left">
-              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Access Password</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">
+                Access Password
+              </label>
               <input
                 type="password"
                 required
@@ -109,35 +116,16 @@ export default function Login() {
             </div>
 
             {isSignUp && (
-              <div className="space-y-2 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Account Role</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setRole("owner")}
-                    className={`p-4 rounded-2xl border text-center font-bold text-sm transition-all flex flex-col items-center gap-2 ${
-                      role === "owner"
-                        ? "bg-primary/10 border-primary text-primary shadow-sm"
-                        : "bg-surface-container-low border-transparent text-on-surface-variant hover:bg-surface-container-high"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined">storefront</span>
-                    <span>Store Owner</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("admin")}
-                    className={`p-4 rounded-2xl border text-center font-bold text-sm transition-all flex flex-col items-center gap-2 ${
-                      role === "admin"
-                        ? "bg-primary/10 border-primary text-primary shadow-sm"
-                        : "bg-surface-container-low border-transparent text-on-surface-variant hover:bg-surface-container-high"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined">shield_person</span>
-                    <span>System Admin</span>
-                  </button>
-                </div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-primary/5 border border-primary/20 rounded-2xl p-4 text-left flex gap-3"
+              >
+                <span className="material-symbols-outlined text-primary shrink-0 text-[20px] mt-0.5">info</span>
+                <p className="text-xs text-on-surface-variant font-semibold leading-relaxed">
+                  New accounts require approval from an existing owner before you can access the system.
+                </p>
+              </motion.div>
             )}
 
             {error && (
@@ -167,7 +155,7 @@ export default function Login() {
             </motion.button>
           </form>
 
-          <button 
+          <button
             onClick={() => setIsSignUp(!isSignUp)}
             className="mt-6 text-xs font-bold text-primary hover:underline"
           >
@@ -175,7 +163,7 @@ export default function Login() {
           </button>
 
           <p className="mt-10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant opacity-40">
-            Secure Administrator Access Only
+            Secure Store Owner Access
           </p>
         </div>
       </motion.div>
