@@ -227,6 +227,11 @@ export default function Settings() {
           if (p.sku) existingSkuMap.set(p.sku.trim().toLowerCase(), p.id);
         });
 
+        // Build csvId -> newDbId mapping so variants import can resolve UUID-based product_id refs
+        const csvIdToDbId: Record<string, string> = {};
+        const isUUID = (s: string) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
         records.forEach((rec) => {
           const rawSku = String(rec.sku || '').trim();
           const sku = rawSku || `PROD_${crypto.randomUUID().substring(0, 8)}`;
@@ -236,6 +241,14 @@ export default function Settings() {
           const resolvedId = (rawSku && existingSkuMap.has(rawSku.toLowerCase()))
             ? existingSkuMap.get(rawSku.toLowerCase())!
             : crypto.randomUUID();
+
+          // If CSV had an id column, remember the mapping so variants can resolve it
+          const csvId = String(rec.id || rec.uuid || '').trim();
+          if (csvId && isUUID(csvId)) {
+            csvIdToDbId[csvId.toLowerCase()] = resolvedId;
+          }
+          // Also map by sku so variants with product_sku column work
+          csvIdToDbId[sku.toLowerCase()] = resolvedId;
 
           cleanedRecords.push({
             id: resolvedId,
@@ -250,8 +263,10 @@ export default function Settings() {
           });
         });
 
-        // Use INSERT with ignoreDuplicates=false so existing rows update, new rows insert
-        // Conflict target is owner_id+sku which we control (no cross-owner conflicts)
+        // Save mapping to sessionStorage so the variants import (a separate upload) can use it
+        sessionStorage.setItem('mobistock_product_id_map', JSON.stringify(csvIdToDbId));
+
+        // Use upsert on id — conflict can only happen with this owner's own rows
         const { error } = await supabase
           .from('products')
           .upsert(cleanedRecords, { onConflict: 'id', ignoreDuplicates: false });
@@ -276,16 +291,44 @@ export default function Settings() {
           if (v.sku) existingVariantSkuMap.set(v.sku.trim().toLowerCase(), v.id);
         });
 
+        // Load the csvId -> dbId mapping saved during products import
+        let csvProductIdMap: Record<string, string> = {};
+        try {
+          const stored = sessionStorage.getItem('mobistock_product_id_map');
+          if (stored) csvProductIdMap = JSON.parse(stored);
+        } catch {}
+
+        const isUUID = (s: string) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
         records.forEach((rec, idx) => {
-          // Resolve parent product via product_sku (preferred) or product_id-as-sku
-          const productSkuHint = String(rec.product_sku || rec.product_id || '').trim().toLowerCase();
-          const resolvedProductId = productSkuToId.get(productSkuHint) || null;
+          const productRef = String(rec.product_sku || rec.product_id || '').trim();
+          const productRefLower = productRef.toLowerCase();
+          let resolvedProductId: string | null = null;
+
+          // 1. Check the sessionStorage mapping (handles UUID-based product_id from exported CSVs)
+          if (csvProductIdMap[productRefLower]) {
+            resolvedProductId = csvProductIdMap[productRefLower];
+          }
+          // 2. Try by SKU directly
+          else if (productSkuToId.has(productRefLower)) {
+            resolvedProductId = productSkuToId.get(productRefLower)!;
+          }
+          // 3. If it's a UUID, check if it directly matches any product the owner has in the DB
+          else if (isUUID(productRef)) {
+            // productSkuToId values are the DB ids — check if any product id matches
+            for (const [, dbId] of productSkuToId) {
+              if (dbId.toLowerCase() === productRefLower) {
+                resolvedProductId = dbId;
+                break;
+              }
+            }
+          }
 
           if (!resolvedProductId) {
             throw new Error(
-              `Row ${idx + 2}: Cannot find parent product with SKU "${productSkuHint}". ` +
-              `Make sure you imported products first, and your variants CSV has a "product_sku" ` +
-              `column matching the SKU in the products CSV.`
+              `Row ${idx + 2}: Cannot find parent product for "${productRef}". ` +
+              `Import your products CSV first, then immediately import the variants CSV.`
             );
           }
 
