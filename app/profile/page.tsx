@@ -90,8 +90,8 @@ export default function Profile() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
           className="mb-8"
         >
-          <h2 className="text-3xl font-extrabold tracking-tight text-primary">Admin Profile</h2>
-          <p className="text-on-surface-variant mt-1">Manage your personal account settings.</p>
+          <h2 className="text-3xl font-extrabold tracking-tight text-primary">Owner Profile</h2>
+          <p className="text-on-surface-variant mt-1">Manage your owner account settings.</p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8">
@@ -133,7 +133,7 @@ export default function Profile() {
             </div>
             <h3 className="text-2xl font-bold text-on-surface">{adminName}</h3>
             <p className="text-on-surface-variant font-medium mt-1">{adminEmail}</p>
-            <span className="mt-4 bg-tertiary-fixed text-on-tertiary-fixed px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-sm">Super Admin</span>
+            <span className="mt-4 bg-tertiary-fixed text-on-tertiary-fixed px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-sm">Owner</span>
           </motion.div>
 
           {/* Profile Form */}
@@ -154,7 +154,7 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Role</label>
-                <input disabled defaultValue="Super Admin" className="w-full bg-surface-container-highest rounded-xl py-3.5 px-4 text-on-surface-variant cursor-not-allowed font-body font-bold" />
+                <input disabled defaultValue="Owner" className="w-full bg-surface-container-highest rounded-xl py-3.5 px-4 text-on-surface-variant cursor-not-allowed font-body font-bold" />
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-widest font-semibold text-on-surface-variant mb-2">Phone Number</label>
