@@ -154,48 +154,55 @@ export default function NewProduct() {
     }
 
     try {
-      // 0. Check if SKU already exists FOR THIS OWNER to prevent duplicate key error
-      const targetSku = variants[0]?.sku || `PRD-${Date.now()}`;
-      const { data: { user: skuUser } } = await supabase.auth.getUser();
+      // 0. Get authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // 1. Generate a UUID client-side — bypasses any missing DB default
+      const productId = crypto.randomUUID();
+      const finalSku = variants[0]?.sku || `PRD-${Date.now()}`;
+
+      // 2. Check if SKU already exists FOR THIS OWNER
       const { data: existing } = await supabase
         .from('products')
         .select('sku')
-        .eq('sku', targetSku)
-        .eq('owner_id', skuUser?.id)
+        .eq('sku', finalSku)
+        .eq('owner_id', user.id)
         .maybeSingle();
 
       if (existing) {
-        alert(`A product with SKU "${targetSku}" already exists in your store. \n\nPlease change the Brand/Name to generate a unique SKU.`);
+        alert(`A product with SKU "${finalSku}" already exists in your store.\n\nPlease change the Brand/Name to generate a unique SKU.`);
         return;
       }
 
-      // 1. Insert Product (including authenticated owner)
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      // 3. Insert Product with explicit UUID id
       const { data: productData, error: productError } = await supabase
         .from('products')
         .insert({
-          sku: variants[0]?.sku || `PRD-${Date.now()}`,
+          id: productId,
+          sku: finalSku,
           title: name,
           brand,
           category,
           image_url: image || "https://lh3.googleusercontent.com/aida-public/AB6AXuBQWZybuEdvsnKkag-7xAD3G4ra-ZSfUx2RTh_XBnxjthRf8oVm-u-Ae5U8LZpw1Ghjgwv3AZsM-TLeEsujzRwH4tuZh-1X9oq5gH5BMURnOqMgRCF0Hb4b0cAXDxSaGO5eBT8XWldo8GhZFRsM2-9pX2-7K_fZxANevdE8QQ42YKxbuMTNDbW6c8na8AsDqxhiz2Ce9-row3moJAWrYQWD8PVe6-spA4aUNRfn-1q-WvboUAvz1zoeOuGxqckYUwWfs91gFpFRZgU",
-          owner_id: user?.id,
+          owner_id: user.id,
         })
         .select()
         .single();
 
       if (productError) throw productError;
 
-      // 2. Insert Variants
+      // 4. Insert Variants — each with its own client-generated UUID
       const factor = settings?.currency !== "ETB" ? (settings?.exchange_rate || 1) : 1;
       const variantsToInsert = variants.map(v => ({
+        id: crypto.randomUUID(),
         product_id: productData.id,
         sku: v.sku,
         options: v.options,
-        price: v.price * factor, // Convert view price back to base ETB
-        cost: v.cost * factor,   // Convert view cost back to base ETB
-        stock: v.stock
+        price: v.price * factor,
+        cost: v.cost * factor,
+        stock: v.stock,
+        owner_id: user.id,
       }));
 
       const { error: variantsError } = await supabase
@@ -204,7 +211,7 @@ export default function NewProduct() {
 
       if (variantsError) throw variantsError;
 
-      alert("Product and variants saved successfully to database!");
+      alert("Product and variants saved successfully!");
       router.push("/inventory");
     } catch (e: any) {
       console.error("Database Error:", e);
