@@ -218,144 +218,92 @@ export default function Settings() {
       const cleanedRecords: any[] = [];
 
       if (table === 'products') {
-        // 1. Fetch current owner's existing products to map SKU -> ID for upsert
+        // Fetch this owner's existing products so we can REUSE their UUIDs on re-import
         const { data: existingProducts } = await supabase
-          .from('products')
-          .select('id, sku')
-          .eq('owner_id', userId);
-        
-        const existingSkuMap = new Map<string, string>();
-        if (existingProducts) {
-          existingProducts.forEach(p => {
-            if (p.sku) existingSkuMap.set(p.sku.trim().toLowerCase(), p.id);
-          });
-        }
+          .from('products').select('id, sku').eq('owner_id', userId);
+
+        const existingSkuMap = new Map<string, string>(); // sku -> existing uuid
+        (existingProducts || []).forEach(p => {
+          if (p.sku) existingSkuMap.set(p.sku.trim().toLowerCase(), p.id);
+        });
 
         records.forEach((rec) => {
           const rawSku = String(rec.sku || '').trim();
-          const sku = rawSku || `PROD_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-          
-          // Check various possible ID/UUID column names
-          const csvId = String(rec.id || rec.product_id || rec.uuid || rec.product_uuid || '').trim();
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvId);
+          const sku = rawSku || `PROD_${crypto.randomUUID().substring(0, 8)}`;
 
-          // Priority:
-          // 1. If a valid UUID is provided in the CSV, use it (preserves foreign keys on new imports)
-          // 2. Otherwise, if the SKU exists for this owner, reuse the existing product's UUID (updates existing product)
-          // 3. Otherwise, generate a brand new random UUID
-          let resolvedId = '';
-          if (csvId && isUUID) {
-            resolvedId = csvId;
-          } else if (rawSku && existingSkuMap.has(rawSku.toLowerCase())) {
-            resolvedId = existingSkuMap.get(rawSku.toLowerCase())!;
-          } else {
-            resolvedId = crypto.randomUUID();
-          }
+          // ALWAYS use the owner-scoped UUID if the SKU already exists, otherwise generate fresh.
+          // Never use the CSV's id column — it may belong to a different owner in the DB.
+          const resolvedId = (rawSku && existingSkuMap.has(rawSku.toLowerCase()))
+            ? existingSkuMap.get(rawSku.toLowerCase())!
+            : crypto.randomUUID();
 
           cleanedRecords.push({
             id: resolvedId,
-            sku: sku,
-            title: rec.title || "Unnamed Product",
-            brand: rec.brand || null,
-            category: rec.category || "Smartphones",
-            description: rec.description || null,
-            image_url: rec.image_url || rec.image || null,
+            sku,
+            title: String(rec.title || '').trim() || 'Unnamed Product',
+            brand: String(rec.brand || '').trim() || null,
+            category: String(rec.category || '').trim() || 'Smartphones',
+            description: String(rec.description || '').trim() || null,
+            image_url: String(rec.image_url || rec.image || '').trim() || null,
             owner_id: userId,
             is_archived: rec.is_archived === true || rec.is_archived === 'true'
           });
         });
 
-      } else {
-        // 2. Fetch current owner's existing products & variants to resolve linkages and SKUs
-        const { data: userProducts } = await supabase
+        // Use INSERT with ignoreDuplicates=false so existing rows update, new rows insert
+        // Conflict target is owner_id+sku which we control (no cross-owner conflicts)
+        const { error } = await supabase
           .from('products')
-          .select('id, sku')
-          .eq('owner_id', userId);
-        
-        const productSkuToId = new Map<string, string>();
-        const productIdSet = new Set<string>();
-        if (userProducts) {
-          userProducts.forEach(p => {
-            productSkuToId.set(p.sku.trim().toLowerCase(), p.id);
-            productIdSet.add(p.id);
-          });
-        }
+          .upsert(cleanedRecords, { onConflict: 'id', ignoreDuplicates: false });
+        if (error) throw error;
 
+      } else {
+        // ── VARIANTS ──────────────────────────────────────────────────────────────
+        // Fetch this owner's products so we can resolve parent by SKU
+        const { data: userProducts } = await supabase
+          .from('products').select('id, sku').eq('owner_id', userId);
+
+        const productSkuToId = new Map<string, string>(); // sku -> id
+        (userProducts || []).forEach(p => {
+          productSkuToId.set(p.sku.trim().toLowerCase(), p.id);
+        });
+
+        // Fetch existing variants for upsert-by-sku
         const { data: existingVariants } = await supabase
-          .from('variants')
-          .select('id, sku')
-          .eq('owner_id', userId);
-        
+          .from('variants').select('id, sku').eq('owner_id', userId);
         const existingVariantSkuMap = new Map<string, string>();
-        if (existingVariants) {
-          existingVariants.forEach(v => {
-            if (v.sku) existingVariantSkuMap.set(v.sku.trim().toLowerCase(), v.id);
-          });
-        }
-
-        const isValidUUID = (s: string) =>
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+        (existingVariants || []).forEach(v => {
+          if (v.sku) existingVariantSkuMap.set(v.sku.trim().toLowerCase(), v.id);
+        });
 
         records.forEach((rec, idx) => {
-          const parentIdStr = String(rec.product_id || '').trim();
-          let resolvedProductId: string | null = null;
-
-          // 1. If the product_id in the CSV is already a valid UUID, trust it directly
-          //    (don't require it to be in our fetched list — avoids false negatives from RLS)
-          if (isValidUUID(parentIdStr)) {
-            resolvedProductId = parentIdStr;
-          }
-          // 2. Try matching by SKU against the owner's existing products
-          else {
-            resolvedProductId = productSkuToId.get(parentIdStr.toLowerCase()) || null;
-          }
-
-          // 3. Try product_sku column as an alternative
-          if (!resolvedProductId && rec.product_sku) {
-            const altSku = String(rec.product_sku).trim().toLowerCase();
-            if (isValidUUID(altSku)) {
-              resolvedProductId = altSku;
-            } else {
-              resolvedProductId = productSkuToId.get(altSku) || null;
-            }
-          }
+          // Resolve parent product via product_sku (preferred) or product_id-as-sku
+          const productSkuHint = String(rec.product_sku || rec.product_id || '').trim().toLowerCase();
+          const resolvedProductId = productSkuToId.get(productSkuHint) || null;
 
           if (!resolvedProductId) {
-            throw new Error(`Row ${idx + 2}: Cannot resolve parent product for "${parentIdStr}". Use a valid UUID or a SKU that exists in your store.`);
+            throw new Error(
+              `Row ${idx + 2}: Cannot find parent product with SKU "${productSkuHint}". ` +
+              `Make sure you imported products first, and your variants CSV has a "product_sku" ` +
+              `column matching the SKU in the products CSV.`
+            );
           }
 
-          // Ensure Variant SKU is valid and trimmed
           let variantSku = String(rec.sku || '').trim();
-          if (!variantSku) {
-            variantSku = `VAR_${resolvedProductId.substring(0, 5)}_${idx + 1}`;
-          }
+          if (!variantSku) variantSku = `VAR_${productSkuHint}_${idx + 1}`;
 
-          const csvVariantId = String(rec.id || '').trim();
-          const isVariantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvVariantId);
-
-          // Priority:
-          // 1. If a valid UUID is provided in the CSV, use it
-          // 2. Otherwise, if this variant SKU already exists for this owner, reuse its UUID (updates existing variant)
-          // 3. Otherwise, generate a brand new random UUID
-          let resolvedVariantId = '';
-          if (csvVariantId && isVariantUUID) {
-            resolvedVariantId = csvVariantId;
-          } else if (existingVariantSkuMap.has(variantSku.toLowerCase())) {
-            resolvedVariantId = existingVariantSkuMap.get(variantSku.toLowerCase())!;
-          } else {
-            resolvedVariantId = crypto.randomUUID();
-          }
+          // Reuse existing variant UUID if SKU already exists, else generate fresh
+          const resolvedVariantId = existingVariantSkuMap.has(variantSku.toLowerCase())
+            ? existingVariantSkuMap.get(variantSku.toLowerCase())!
+            : crypto.randomUUID();
 
           // Parse options safely
-          let parsedOptions = {};
+          let parsedOptions: any = {};
           if (typeof rec.options === 'object' && rec.options !== null) {
             parsedOptions = rec.options;
-          } else if (typeof rec.options === 'string' && rec.options.trim() !== '') {
-            try {
-              parsedOptions = JSON.parse(rec.options);
-            } catch (e) {
-              parsedOptions = { Option: rec.options };
-            }
+          } else if (typeof rec.options === 'string' && rec.options.trim()) {
+            try { parsedOptions = JSON.parse(rec.options); }
+            catch { parsedOptions = { Option: rec.options }; }
           }
 
           cleanedRecords.push({
@@ -363,18 +311,19 @@ export default function Settings() {
             product_id: resolvedProductId,
             sku: variantSku,
             price: Number(rec.price) || 0,
-            stock: parseInt(rec.stock) || 0,
+            stock: parseInt(String(rec.stock)) || 0,
             options: parsedOptions,
             owner_id: userId
           });
         });
+
+        const { error } = await supabase
+          .from('variants')
+          .upsert(cleanedRecords, { onConflict: 'id', ignoreDuplicates: false });
+        if (error) throw error;
       }
 
-      // Perform an upsert to gracefully insert new rows or update existing rows on ID conflict
-      const { error } = await supabase.from(table).upsert(cleanedRecords);
-      if (error) throw error;
-
-      alert(`${table.charAt(0).toUpperCase() + table.slice(1)} imported successfully!`);
+      alert(`${table === 'products' ? 'Products' : 'Variants'} imported successfully! ✅`);
     } catch (e: any) {
       alert(`Import failed: ${e.message}`);
     } finally {
