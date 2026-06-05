@@ -161,7 +161,8 @@ export default function Settings() {
   const [isImportingVariants, setIsImportingVariants] = useState(false);
 
   const parseCSV = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const cleanText = text.replace(/^\uFEFF/, '');
+    const lines = cleanText.split('\n').filter(line => line.trim().length > 0);
     const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
     
     return lines.slice(1).map(line => {
@@ -234,7 +235,8 @@ export default function Settings() {
           const rawSku = String(rec.sku || '').trim();
           const sku = rawSku || `PROD_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
           
-          const csvId = String(rec.id || '').trim();
+          // Check various possible ID/UUID column names
+          const csvId = String(rec.id || rec.product_id || rec.uuid || rec.product_uuid || '').trim();
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvId);
 
           // Priority:
