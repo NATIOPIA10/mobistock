@@ -206,51 +206,142 @@ export default function Settings() {
     else setIsImportingVariants(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      if (!userId) throw new Error("User not authenticated.");
+
       const text = await file.text();
       const records = parseCSV(text);
       if (records.length === 0) throw new Error("CSV is empty or invalid format.");
 
-      // Map 'image' to 'image_url' for products
+      const cleanedRecords: any[] = [];
+
       if (table === 'products') {
-        records.forEach(rec => {
-          if (rec.image && !rec.image_url) {
-            rec.image_url = rec.image;
-            delete rec.image;
-          }
-        });
-      }
-
-      // Ensure SKU is a non-empty trimmed string for variants
-      if (table === 'variants') {
-        records.forEach((rec, idx) => {
-          // If SKU is missing, empty, null string, or not a string, generate one
-          if (!rec.sku || rec.sku === '' || rec.sku === 'null' || typeof rec.sku !== 'string') {
-            const base = rec.product_id ? `P${rec.product_id}` : 'PROD';
-            rec.sku = `${base}_VAR${idx + 1}`;
-          }
-          // Trim whitespace and ensure string type
-          rec.sku = String(rec.sku).trim();
-          // After trimming, if empty, generate again
-          if (!rec.sku) {
-            const base = rec.product_id ? `P${rec.product_id}` : 'PROD';
-            rec.sku = `${base}_VAR${idx + 1}`;
-          }
-        });
-      }
-
-      // ----- Variant-specific validation -----
-      if (table === 'variants') {
-        const missingSkuRows: number[] = [];
-        records.forEach((rec, idx) => {
-          // After the generation step, sku should never be falsy
-          if (!rec.sku) missingSkuRows.push(idx + 2);
-        });
-        if (missingSkuRows.length) {
-          throw new Error(`Missing SKU in rows: ${missingSkuRows.join(', ')}`);
+        // 1. Fetch current owner's existing products to map SKU -> ID for upsert
+        const { data: existingProducts } = await supabase
+          .from('products')
+          .select('id, sku')
+          .eq('owner_id', userId);
+        
+        const existingSkuMap = new Map<string, string>();
+        if (existingProducts) {
+          existingProducts.forEach(p => {
+            if (p.sku) existingSkuMap.set(p.sku.trim().toLowerCase(), p.id);
+          });
         }
+
+        records.forEach((rec) => {
+          const rawSku = String(rec.sku || '').trim();
+          const sku = rawSku || `PROD_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+          
+          // If the SKU exists for this owner, reuse the existing product's UUID
+          // Otherwise, generate a brand new UUID to prevent products_pkey conflicts
+          let resolvedId = crypto.randomUUID();
+          if (rawSku && existingSkuMap.has(rawSku.toLowerCase())) {
+            resolvedId = existingSkuMap.get(rawSku.toLowerCase())!;
+          }
+
+          cleanedRecords.push({
+            id: resolvedId,
+            sku: sku,
+            title: rec.title || "Unnamed Product",
+            brand: rec.brand || null,
+            category: rec.category || "Smartphones",
+            description: rec.description || null,
+            image_url: rec.image_url || rec.image || null,
+            owner_id: userId,
+            is_archived: rec.is_archived === true || rec.is_archived === 'true'
+          });
+        });
+
+      } else {
+        // 2. Fetch current owner's existing products & variants to resolve linkages and SKUs
+        const { data: userProducts } = await supabase
+          .from('products')
+          .select('id, sku')
+          .eq('owner_id', userId);
+        
+        const productSkuToId = new Map<string, string>();
+        const productIdSet = new Set<string>();
+        if (userProducts) {
+          userProducts.forEach(p => {
+            productSkuToId.set(p.sku.trim().toLowerCase(), p.id);
+            productIdSet.add(p.id);
+          });
+        }
+
+        const { data: existingVariants } = await supabase
+          .from('variants')
+          .select('id, sku')
+          .eq('owner_id', userId);
+        
+        const existingVariantSkuMap = new Map<string, string>();
+        if (existingVariants) {
+          existingVariants.forEach(v => {
+            if (v.sku) existingVariantSkuMap.set(v.sku.trim().toLowerCase(), v.id);
+          });
+        }
+
+        records.forEach((rec, idx) => {
+          const parentIdStr = String(rec.product_id || '').trim();
+          let resolvedProductId = null;
+
+          // Resolve parent product ID (either as a direct UUID or matching SKU)
+          if (productIdSet.has(parentIdStr)) {
+            resolvedProductId = parentIdStr;
+          } else {
+            const matchId = productSkuToId.get(parentIdStr.toLowerCase());
+            if (matchId) {
+              resolvedProductId = matchId;
+            }
+          }
+
+          if (!resolvedProductId && rec.product_sku) {
+            resolvedProductId = productSkuToId.get(String(rec.product_sku).trim().toLowerCase()) || null;
+          }
+
+          if (!resolvedProductId) {
+            throw new Error(`Row ${idx + 2}: Parent product not found for identifier "${parentIdStr}". Ensure you import products first.`);
+          }
+
+          // Ensure Variant SKU is valid and trimmed
+          let variantSku = String(rec.sku || '').trim();
+          if (!variantSku) {
+            variantSku = `VAR_${resolvedProductId.substring(0, 5)}_${idx + 1}`;
+          }
+
+          // If this variant SKU already exists for this owner, reuse its UUID for updates
+          let resolvedVariantId = crypto.randomUUID();
+          if (existingVariantSkuMap.has(variantSku.toLowerCase())) {
+            resolvedVariantId = existingVariantSkuMap.get(variantSku.toLowerCase())!;
+          }
+
+          // Parse options safely
+          let parsedOptions = {};
+          if (typeof rec.options === 'object' && rec.options !== null) {
+            parsedOptions = rec.options;
+          } else if (typeof rec.options === 'string' && rec.options.trim() !== '') {
+            try {
+              parsedOptions = JSON.parse(rec.options);
+            } catch (e) {
+              parsedOptions = { Option: rec.options };
+            }
+          }
+
+          cleanedRecords.push({
+            id: resolvedVariantId,
+            product_id: resolvedProductId,
+            sku: variantSku,
+            price: Number(rec.price) || 0,
+            stock: parseInt(rec.stock) || 0,
+            options: parsedOptions,
+            owner_id: userId
+          });
+        });
       }
 
-      const { error } = await supabase.from(table).insert(records);
+      // Perform an upsert to gracefully insert new rows or update existing rows on ID conflict
+      const { error } = await supabase.from(table).upsert(cleanedRecords);
       if (error) throw error;
 
       alert(`${table.charAt(0).toUpperCase() + table.slice(1)} imported successfully!`);
