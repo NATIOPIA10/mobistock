@@ -11,7 +11,7 @@ const navLinks = [
   { href: "/pos", label: "POS Terminal", icon: "point_of_sale" },
   { href: "/analytics", label: "Sales Analytics", icon: "query_stats" },
   { href: "/orders", label: "Orders", icon: "receipt_long" },
-  { href: "/user-management", label: "User Management", icon: "manage_accounts" },
+
 ];
 
 interface SidebarProps {
