@@ -234,11 +234,20 @@ export default function Settings() {
           const rawSku = String(rec.sku || '').trim();
           const sku = rawSku || `PROD_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
           
-          // If the SKU exists for this owner, reuse the existing product's UUID
-          // Otherwise, generate a brand new UUID to prevent products_pkey conflicts
-          let resolvedId = crypto.randomUUID();
+          const csvId = String(rec.id || '').trim();
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvId);
+
+          // Priority:
+          // 1. If the SKU exists for this owner, reuse the existing product's UUID (updates existing product)
+          // 2. If a valid UUID is provided in the CSV, use it (preserves foreign keys on new imports)
+          // 3. Otherwise, generate a brand new random UUID
+          let resolvedId = '';
           if (rawSku && existingSkuMap.has(rawSku.toLowerCase())) {
             resolvedId = existingSkuMap.get(rawSku.toLowerCase())!;
+          } else if (csvId && isUUID) {
+            resolvedId = csvId;
+          } else {
+            resolvedId = crypto.randomUUID();
           }
 
           cleanedRecords.push({
@@ -310,10 +319,18 @@ export default function Settings() {
             variantSku = `VAR_${resolvedProductId.substring(0, 5)}_${idx + 1}`;
           }
 
+          const csvVariantId = String(rec.id || '').trim();
+          const isVariantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvVariantId);
+
           // If this variant SKU already exists for this owner, reuse its UUID for updates
-          let resolvedVariantId = crypto.randomUUID();
+          // Otherwise, if a valid UUID is provided in the CSV, use it; else generate a brand new UUID
+          let resolvedVariantId = '';
           if (existingVariantSkuMap.has(variantSku.toLowerCase())) {
             resolvedVariantId = existingVariantSkuMap.get(variantSku.toLowerCase())!;
+          } else if (csvVariantId && isVariantUUID) {
+            resolvedVariantId = csvVariantId;
+          } else {
+            resolvedVariantId = crypto.randomUUID();
           }
 
           // Parse options safely
