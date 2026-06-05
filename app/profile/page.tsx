@@ -10,6 +10,7 @@ export default function Profile() {
   const [adminName, setAdminName] = useState("Store Admin");
   const [adminEmail, setAdminEmail] = useState("admin@mobistock.com");
   const [adminPhone, setAdminPhone] = useState("+251 911 223 344");
+  const [settingsId, setSettingsId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function Profile() {
       if (!user) return;
       const { data } = await supabase.from('store_settings').select('*').eq('owner_id', user.id).maybeSingle();
       if (data) {
+        setSettingsId(data.id);
         if (data.admin_photo) setProfileImage(data.admin_photo);
         if (data.store_name) setAdminName(data.store_name);
         if (data.email) setAdminEmail(data.email);
@@ -50,7 +52,31 @@ export default function Profile() {
         // Auto-save photo to Supabase
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('store_settings').upsert({ owner_id: user.id, admin_photo: base64, updated_at: new Date().toISOString() }, { onConflict: 'owner_id' });
+          // Check if a row already exists for this owner
+          const { data: existing } = await supabase
+            .from('store_settings')
+            .select('id')
+            .eq('owner_id', user.id)
+            .maybeSingle();
+
+          if (existing) {
+            // Row exists — update it (never touch the primary key)
+            const { data: updated } = await supabase
+              .from('store_settings')
+              .update({ admin_photo: base64, updated_at: new Date().toISOString() })
+              .eq('owner_id', user.id)
+              .select('id')
+              .maybeSingle();
+            if (updated) setSettingsId(updated.id);
+          } else {
+            // No row yet — insert without explicit id (let the sequence assign it)
+            const { data: inserted } = await supabase
+              .from('store_settings')
+              .insert({ owner_id: user.id, admin_photo: base64, updated_at: new Date().toISOString() })
+              .select('id')
+              .maybeSingle();
+            if (inserted) setSettingsId(inserted.id);
+          }
           window.dispatchEvent(new Event('mobistock_settings_updated'));
         }
       };
@@ -63,17 +89,44 @@ export default function Profile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from('store_settings').upsert({
-        owner_id: user.id,
+      const payload = {
         store_name: adminName,
         email: adminEmail,
         phone: adminPhone,
         admin_photo: profileImage,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'owner_id' });
-      
-      if (error) throw error;
+      };
 
+      // Check if a settings row already exists for this owner
+      const { data: existing } = await supabase
+        .from('store_settings')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+
+      let savedId: number | null = null;
+      if (existing) {
+        // Row exists — update it without touching the primary key
+        const { data, error } = await supabase
+          .from('store_settings')
+          .update(payload)
+          .eq('owner_id', user.id)
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        savedId = data?.id ?? existing.id;
+      } else {
+        // No row yet — insert without explicit id (sequence assigns it)
+        const { data, error } = await supabase
+          .from('store_settings')
+          .insert({ owner_id: user.id, ...payload })
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        savedId = data?.id ?? null;
+      }
+
+      if (savedId) setSettingsId(savedId);
       window.dispatchEvent(new Event('mobistock_settings_updated'));
       alert("Profile settings synchronized successfully!");
     } catch (e: any) {

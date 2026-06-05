@@ -121,6 +121,84 @@ async function run() {
       }
     }
   }
+
+  // 5. Test store_settings CRUD
+  console.log('Testing store_settings select...');
+  const { data: ssData, error: ssError } = await authClient
+    .from('store_settings')
+    .select('*')
+    .eq('owner_id', user.id)
+    .maybeSingle();
+    
+  if (ssError) {
+    console.error('❌ store_settings select failed:', ssError.message);
+  } else {
+    console.log('✅ store_settings select succeeded. Row exists:', !!ssData);
+    
+    if (!ssData) {
+      console.log('Testing store_settings insert...');
+      const { data: ssInsertData, error: ssInsertError } = await authClient
+        .from('store_settings')
+        .insert({
+          id: 999999,
+          owner_id: user.id,
+          store_name: 'Test Store',
+          email: user.email,
+          phone: '123456789'
+        })
+        .select()
+        .single();
+        
+      if (ssInsertError) {
+        console.error('❌ store_settings insert failed:', ssInsertError.message);
+      } else {
+        console.log('✅ store_settings insert succeeded. ID:', ssInsertData.id);
+        
+        console.log('Testing store_settings update...');
+        const { error: ssUpdateError } = await authClient
+          .from('store_settings')
+          .update({
+            store_name: 'Updated Store Name'
+          })
+          .eq('owner_id', user.id);
+          
+        if (ssUpdateError) {
+          console.error('❌ store_settings update failed:', ssUpdateError.message);
+        } else {
+          console.log('✅ store_settings update succeeded.');
+        }
+      }
+    } else {
+      console.log('Testing store_settings update...');
+      const { error: ssUpdateError } = await authClient
+        .from('store_settings')
+        .update({
+          store_name: 'Updated Store Name'
+        })
+        .eq('owner_id', user.id);
+        
+      if (ssUpdateError) {
+        console.error('❌ store_settings update failed:', ssUpdateError.message);
+      } else {
+        console.log('✅ store_settings update succeeded.');
+      }
+    }
+  }
+
+  // 6. Test updating a non-existent store_settings row
+  console.log('Testing update on non-existent store_settings row...');
+  const { data: nonExistentData, error: nonExistentError } = await authClient
+    .from('store_settings')
+    .update({
+      store_name: 'Non-existent Store'
+    })
+    .eq('owner_id', '00000000-0000-0000-0000-000000000000');
+    
+  if (nonExistentError) {
+    console.log('❌ Update non-existent failed:', nonExistentError.message);
+  } else {
+    console.log('✅ Update non-existent succeeded (no rows changed).');
+  }
 }
 
 run().catch(console.error);

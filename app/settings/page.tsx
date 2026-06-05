@@ -43,6 +43,7 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [settingsId, setSettingsId] = useState<number | null>(null);
 
   const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -113,8 +114,25 @@ export default function Settings() {
       if (backup.settings) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { error: sError } = await supabase.from('store_settings').upsert({ owner_id: user.id, ...backup.settings });
-          if (sError) throw sError;
+          // Strip the backed-up id so we never collide with the pkey sequence
+          const { id: _ignoredId, owner_id: _ignoredOwner, ...restorePayload } = backup.settings;
+          const { data: existingSettings } = await supabase
+            .from('store_settings')
+            .select('id')
+            .eq('owner_id', user.id)
+            .maybeSingle();
+          if (existingSettings) {
+            const { error: sError } = await supabase
+              .from('store_settings')
+              .update({ ...restorePayload, owner_id: user.id })
+              .eq('owner_id', user.id);
+            if (sError) throw sError;
+          } else {
+            const { error: sError } = await supabase
+              .from('store_settings')
+              .insert({ ...restorePayload, owner_id: user.id });
+            if (sError) throw sError;
+          }
         }
       }
 
@@ -498,6 +516,7 @@ export default function Settings() {
         .maybeSingle();
       
         if (data) {
+          setSettingsId(data.id);
           setStoreName(data.store_name || storeName);
           setEmail(data.email || email);
           setPhone(data.phone || phone);
@@ -534,31 +553,58 @@ export default function Settings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { error } = await supabase
-        .from('store_settings')
-        .upsert({
-          owner_id: user.id,
-          store_name: storeName,
-          email: email,
-          phone: phone,
-          address: address,
-          admin_photo: adminPhoto,
-          currency: currency,
-          tax_rate: taxRate,
-          discount_options: discountOptions,
-          notify_email: notifyEmail,
-          notify_low_stock: notifyLowStock,
-          notify_daily_report: notifyDailyReport,
-          low_stock_threshold: lowStockThreshold,
-          exchange_rate: exchangeRate,
-          product_categories: productCategories,
-          transaction_pin: transactionPin,
-          require_pin_for_delete: requirePinForDelete,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'owner_id' });
 
-      if (error) throw error;
-      
+      const payload = {
+        store_name: storeName,
+        email: email,
+        phone: phone,
+        address: address,
+        admin_photo: adminPhoto,
+        currency: currency,
+        tax_rate: taxRate,
+        discount_options: discountOptions,
+        notify_email: notifyEmail,
+        notify_low_stock: notifyLowStock,
+        notify_daily_report: notifyDailyReport,
+        low_stock_threshold: lowStockThreshold,
+        exchange_rate: exchangeRate,
+        product_categories: productCategories,
+        transaction_pin: transactionPin,
+        require_pin_for_delete: requirePinForDelete,
+        updated_at: new Date().toISOString()
+      };
+
+      // Check if a settings row already exists for this owner
+      const { data: existing } = await supabase
+        .from('store_settings')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+
+      let savedId: number | null = null;
+      if (existing) {
+        // Row exists — update without touching the primary key
+        const { data, error } = await supabase
+          .from('store_settings')
+          .update(payload)
+          .eq('owner_id', user.id)
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        savedId = data?.id ?? existing.id;
+      } else {
+        // No row yet — insert without explicit id (sequence assigns it safely)
+        const { data, error } = await supabase
+          .from('store_settings')
+          .insert({ owner_id: user.id, ...payload })
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        savedId = data?.id ?? null;
+      }
+
+      if (savedId) setSettingsId(savedId);
+
       // Log the change
       await supabase.from('security_logs').insert({
         event: "Settings Updated",
@@ -568,7 +614,7 @@ export default function Settings() {
 
       // Notify other components (like Sidebar) to refresh
       window.dispatchEvent(new Event('mobistock_settings_updated'));
-      
+
       alert("Store configuration synchronized to database successfully!");
     } catch (e: any) {
       alert("Error saving settings: " + e.message);
