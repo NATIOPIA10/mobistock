@@ -240,14 +240,14 @@ export default function Settings() {
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvId);
 
           // Priority:
-          // 1. If the SKU exists for this owner, reuse the existing product's UUID (updates existing product)
-          // 2. If a valid UUID is provided in the CSV, use it (preserves foreign keys on new imports)
+          // 1. If a valid UUID is provided in the CSV, use it (preserves foreign keys on new imports)
+          // 2. Otherwise, if the SKU exists for this owner, reuse the existing product's UUID (updates existing product)
           // 3. Otherwise, generate a brand new random UUID
           let resolvedId = '';
-          if (rawSku && existingSkuMap.has(rawSku.toLowerCase())) {
-            resolvedId = existingSkuMap.get(rawSku.toLowerCase())!;
-          } else if (csvId && isUUID) {
+          if (csvId && isUUID) {
             resolvedId = csvId;
+          } else if (rawSku && existingSkuMap.has(rawSku.toLowerCase())) {
+            resolvedId = existingSkuMap.get(rawSku.toLowerCase())!;
           } else {
             resolvedId = crypto.randomUUID();
           }
@@ -324,13 +324,15 @@ export default function Settings() {
           const csvVariantId = String(rec.id || '').trim();
           const isVariantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(csvVariantId);
 
-          // If this variant SKU already exists for this owner, reuse its UUID for updates
-          // Otherwise, if a valid UUID is provided in the CSV, use it; else generate a brand new UUID
+          // Priority:
+          // 1. If a valid UUID is provided in the CSV, use it
+          // 2. Otherwise, if this variant SKU already exists for this owner, reuse its UUID (updates existing variant)
+          // 3. Otherwise, generate a brand new random UUID
           let resolvedVariantId = '';
-          if (existingVariantSkuMap.has(variantSku.toLowerCase())) {
-            resolvedVariantId = existingVariantSkuMap.get(variantSku.toLowerCase())!;
-          } else if (csvVariantId && isVariantUUID) {
+          if (csvVariantId && isVariantUUID) {
             resolvedVariantId = csvVariantId;
+          } else if (existingVariantSkuMap.has(variantSku.toLowerCase())) {
+            resolvedVariantId = existingVariantSkuMap.get(variantSku.toLowerCase())!;
           } else {
             resolvedVariantId = crypto.randomUUID();
           }
