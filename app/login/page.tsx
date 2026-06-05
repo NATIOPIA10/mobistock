@@ -1,57 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    // If already logged in, go to dashboard
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.push("/");
-    });
-  }, [router]);
-
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              is_superadmin: false,
-            },
-          },
-        });
-        if (error) throw error;
-        alert(
-          "Success! Your account is pending approval. You will be notified once an existing owner approves your access."
-        );
-        setIsSignUp(false);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        router.push("/");
-        router.refresh();
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      router.push("/");
+      router.refresh();
     } catch (err: any) {
-      setError(err.message || "Authentication failed");
+      setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -82,16 +54,17 @@ export default function Login() {
             </div>
             <h1 className="text-3xl font-black tracking-tighter text-primary">MobiStock Pro</h1>
             <p className="text-on-surface-variant font-bold text-sm mt-2 uppercase tracking-[0.2em]">
-              {isSignUp ? "Create Store Owner Account" : "The Digital Concierge"}
+              The Digital Concierge
             </p>
           </motion.div>
 
-          <form onSubmit={handleAuth} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2 text-left">
               <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">
                 Email Address
               </label>
               <input
+                id="login-email"
                 type="email"
                 required
                 value={email}
@@ -106,6 +79,7 @@ export default function Login() {
                 Access Password
               </label>
               <input
+                id="login-password"
                 type="password"
                 required
                 value={password}
@@ -114,19 +88,6 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
-
-            {isSignUp && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-primary/5 border border-primary/20 rounded-2xl p-4 text-left flex gap-3"
-              >
-                <span className="material-symbols-outlined text-primary shrink-0 text-[20px] mt-0.5">info</span>
-                <p className="text-xs text-on-surface-variant font-semibold leading-relaxed">
-                  New accounts require approval from an existing owner before you can access the system.
-                </p>
-              </motion.div>
-            )}
 
             {error && (
               <motion.p
@@ -139,6 +100,7 @@ export default function Login() {
             )}
 
             <motion.button
+              id="login-submit"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               disabled={isLoading}
@@ -148,19 +110,12 @@ export default function Login() {
                 <span className="material-symbols-outlined animate-spin">refresh</span>
               ) : (
                 <>
-                  {isSignUp ? "Create Account" : "Authenticate"}
+                  Authenticate
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </>
               )}
             </motion.button>
           </form>
-
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="mt-6 text-xs font-bold text-primary hover:underline"
-          >
-            {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
-          </button>
 
           <p className="mt-10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant opacity-40">
             Secure Store Owner Access

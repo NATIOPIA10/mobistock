@@ -8,58 +8,23 @@ import Header from "@/components/Header";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   // Keep a ref so the one-time auth effect can always read the latest pathname
-  // without being re-triggered by pathname changes.
   const pathnameRef = useRef(pathname);
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+  const handleSession = (session: any, active: { value: boolean }) => {
+    if (!active.value) return;
 
-      if (error) {
-        // Table may not exist yet — default to approved so existing users aren't blocked
-        console.warn("Could not fetch user profile:", error.message);
-        return { approved: true };
-      }
-      return data;
-    } catch (e) {
-      console.warn("Exception fetching user profile:", e);
-      return { approved: true };
-    }
-  };
-
-  const handleSession = async (session: any, active: { value: boolean }) => {
     if (session) {
-      const userProfile = await fetchProfile(session.user.id);
-      if (!active.value) return;
-
-      setProfile(userProfile);
       setSession(session);
       setIsLoading(false);
-
-      const currentPath = pathnameRef.current;
-
-      // Not yet approved → send to pending page
-      if (!userProfile.approved && currentPath !== "/approval-pending" && currentPath !== "/login") {
-        router.push("/approval-pending");
-      }
-      // Approved and sitting on pending page → go to dashboard
-      else if (userProfile.approved && currentPath === "/approval-pending") {
-        router.push("/");
-      }
 
       // Log login (once per tab session)
       const loggedIn = sessionStorage.getItem("mobistock_login_logged");
@@ -73,58 +38,51 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
           })
           .then(() => sessionStorage.setItem("mobistock_login_logged", "true"));
       }
+
+      // If sitting on login page after sign-in, go to dashboard
+      if (pathnameRef.current === "/login") {
+        router.push("/");
+      }
     } else {
-      if (!active.value) return;
       setSession(null);
-      setProfile(null);
       setIsLoading(false);
 
-      const currentPath = pathnameRef.current;
-      if (currentPath !== "/login" && currentPath !== "/approval-pending") {
+      // Not logged in → force to login page
+      if (pathnameRef.current !== "/login") {
         router.push("/login");
       }
     }
   };
 
-  // Run ONCE on mount — no pathname/router in deps to avoid re-trigger loops
+  // Run ONCE on mount — always force logout to require fresh login
   useEffect(() => {
     const active = { value: true };
 
-    // Safety net: never stay on loading screen longer than 10 seconds
-    const timeout = setTimeout(() => {
+    // Sign out any existing session immediately so login is always required
+    supabase.auth.signOut().then(() => {
       if (active.value) {
-        console.warn("Auth timed out — defaulting to unauthenticated");
+        router.push("/login");
         setIsLoading(false);
       }
-    }, 10000);
-
-    // Resolve current session
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => handleSession(session, active))
-      .catch((err) => {
-        console.error("getSession error:", err);
-        if (active.value) {
-          setIsLoading(false);
-          const currentPath = pathnameRef.current;
-          if (currentPath !== "/login") router.push("/login");
-        }
-      });
+    }).catch((err) => {
+      console.error("Error signing out on mount:", err);
+      if (active.value) {
+        router.push("/login");
+        setIsLoading(false);
+      }
+    });
 
     // Listen for future auth state changes (login / logout)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       handleSession(session, active);
     });
 
     return () => {
       active.value = false;
-      clearTimeout(timeout);
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // <-- intentionally empty: run once on mount only
+  }, []); // intentionally empty: run once on mount only
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -139,18 +97,15 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     );
   }
 
-  // Auth/approval pages — no sidebar/header
-  if (pathname === "/login" || pathname === "/approval-pending") {
+  // Login page — no sidebar/header
+  if (pathname === "/login") {
     return <>{children}</>;
   }
 
-  // Not logged in
+  // Not logged in → show nothing (redirect handled above)
   if (!session) return null;
 
-  // Logged in but not yet approved
-  if (profile && !profile.approved) return null;
-
-  // Fully authenticated & approved — show full owner layout
+  // Fully authenticated — show full owner layout
   return (
     <>
       <Sidebar
