@@ -50,7 +50,7 @@ export default function Profile() {
         // Auto-save photo to Supabase
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('store_settings').update({ admin_photo: base64, updated_at: new Date().toISOString() }).eq('owner_id', user.id);
+          await supabase.from('store_settings').upsert({ owner_id: user.id, admin_photo: base64, updated_at: new Date().toISOString() }, { onConflict: 'owner_id' });
           window.dispatchEvent(new Event('mobistock_settings_updated'));
         }
       };
@@ -63,13 +63,14 @@ export default function Profile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from('store_settings').update({
+      const { error } = await supabase.from('store_settings').upsert({
+        owner_id: user.id,
         store_name: adminName,
         email: adminEmail,
         phone: adminPhone,
         admin_photo: profileImage,
         updated_at: new Date().toISOString()
-      }).eq('owner_id', user.id);
+      }, { onConflict: 'owner_id' });
       
       if (error) throw error;
 

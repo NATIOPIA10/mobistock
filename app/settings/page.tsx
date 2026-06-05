@@ -536,7 +536,8 @@ export default function Settings() {
       if (!user) return;
       const { error } = await supabase
         .from('store_settings')
-        .update({
+        .upsert({
+          owner_id: user.id,
           store_name: storeName,
           email: email,
           phone: phone,
@@ -554,8 +555,7 @@ export default function Settings() {
           transaction_pin: transactionPin,
           require_pin_for_delete: requirePinForDelete,
           updated_at: new Date().toISOString()
-        })
-        .eq('owner_id', user.id);
+        }, { onConflict: 'owner_id' });
 
       if (error) throw error;
       
