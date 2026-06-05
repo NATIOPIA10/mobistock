@@ -29,13 +29,20 @@ export default function Inventory() {
     setMounted(true);
     
     (async () => {
-      // 1. Fetch settings first to ensure threshold is populated before computing low stock
+      // 1. Fetch the current owner's settings first
       let activeSettings = null;
       try {
-        const { data } = await supabase.from('store_settings').select('*').limit(1).maybeSingle();
-        if (data) {
-          setSettings(data);
-          activeSettings = data;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from('store_settings')
+            .select('*')
+            .eq('owner_id', user.id)
+            .maybeSingle();
+          if (data) {
+            setSettings(data);
+            activeSettings = data;
+          }
         }
       } catch (e) {
         console.warn("[Inventory] Settings fetch failed (non-critical):", e);

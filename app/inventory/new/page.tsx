@@ -154,21 +154,24 @@ export default function NewProduct() {
     }
 
     try {
-      // 0. Check if SKU already exists to prevent duplicate key error
+      // 0. Check if SKU already exists FOR THIS OWNER to prevent duplicate key error
       const targetSku = variants[0]?.sku || `PRD-${Date.now()}`;
+      const { data: { user: skuUser } } = await supabase.auth.getUser();
       const { data: existing } = await supabase
         .from('products')
         .select('sku')
         .eq('sku', targetSku)
+        .eq('owner_id', skuUser?.id)
         .maybeSingle();
 
       if (existing) {
-        alert(`A product with SKU "${targetSku}" already exists in your database. \n\nPlease delete the existing product first or change the Brand/Name to generate a unique SKU.`);
+        alert(`A product with SKU "${targetSku}" already exists in your store. \n\nPlease change the Brand/Name to generate a unique SKU.`);
         return;
       }
 
       // 1. Insert Product (including authenticated owner)
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
       const { data: productData, error: productError } = await supabase
         .from('products')
         .insert({
