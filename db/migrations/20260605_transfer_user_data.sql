@@ -41,8 +41,13 @@ BEGIN
   -- ----------------------------------------------------------------
   -- 2. Transfer store_settings ownership
   -- ----------------------------------------------------------------
+  -- Safety: If the new user already has a blank/default store_settings row,
+  -- delete it first to avoid unique key constraint violation when updating the old row's owner.
+  DELETE FROM public.store_settings
+  WHERE owner_id = new_uid;
+
   UPDATE public.store_settings
-  SET owner_id = new_uid
+  SET owner_id = new_uid, email = 'natnaeltsedeke63@gmail.com'
   WHERE owner_id = old_uid;
 
   RAISE NOTICE 'store_settings transferred: % rows', FOUND::int;
