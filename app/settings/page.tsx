@@ -333,7 +333,7 @@ export default function Settings() {
           }
 
           let variantSku = String(rec.sku || '').trim();
-          if (!variantSku) variantSku = `VAR_${productSkuHint}_${idx + 1}`;
+          if (!variantSku) variantSku = `VAR_${productRefLower}_${idx + 1}`;
 
           // Reuse existing variant UUID if SKU already exists, else generate fresh
           const resolvedVariantId = existingVariantSkuMap.has(variantSku.toLowerCase())
