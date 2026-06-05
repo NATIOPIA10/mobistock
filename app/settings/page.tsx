@@ -316,7 +316,6 @@ export default function Settings() {
           }
           // 3. If it's a UUID, check if it directly matches any product the owner has in the DB
           else if (isUUID(productRef)) {
-            // productSkuToId values are the DB ids — check if any product id matches
             for (const [, dbId] of productSkuToId) {
               if (dbId.toLowerCase() === productRefLower) {
                 resolvedProductId = dbId;
@@ -325,10 +324,22 @@ export default function Settings() {
             }
           }
 
+          // 4. FALLBACK: if still unresolved, check if this owner has exactly one product
+          //    and auto-link all variants to it. This handles CSVs where product_id is
+          //    an old UUID from a previous DB state and the products CSV had no id column.
+          if (!resolvedProductId && productSkuToId.size === 1) {
+            resolvedProductId = [...productSkuToId.values()][0];
+          }
+
+          // 5. If multiple products exist and we still can't resolve, give actionable error
           if (!resolvedProductId) {
+            const productCount = productSkuToId.size;
+            if (productCount === 0) {
+              throw new Error(`Row ${idx + 2}: No products found. Please import your products CSV first.`);
+            }
             throw new Error(
-              `Row ${idx + 2}: Cannot find parent product for "${productRef}". ` +
-              `Import your products CSV first, then immediately import the variants CSV.`
+              `Row ${idx + 2}: Cannot match "${productRef}" to any of your ${productCount} products. ` +
+              `Add a "product_sku" column to your variants CSV with the product's SKU (e.g. SAM-S24).`
             );
           }
 
