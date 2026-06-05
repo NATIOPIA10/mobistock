@@ -293,26 +293,35 @@ export default function Settings() {
           });
         }
 
+        const isValidUUID = (s: string) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
         records.forEach((rec, idx) => {
           const parentIdStr = String(rec.product_id || '').trim();
-          let resolvedProductId = null;
+          let resolvedProductId: string | null = null;
 
-          // Resolve parent product ID (either as a direct UUID or matching SKU)
-          if (productIdSet.has(parentIdStr)) {
+          // 1. If the product_id in the CSV is already a valid UUID, trust it directly
+          //    (don't require it to be in our fetched list — avoids false negatives from RLS)
+          if (isValidUUID(parentIdStr)) {
             resolvedProductId = parentIdStr;
-          } else {
-            const matchId = productSkuToId.get(parentIdStr.toLowerCase());
-            if (matchId) {
-              resolvedProductId = matchId;
+          }
+          // 2. Try matching by SKU against the owner's existing products
+          else {
+            resolvedProductId = productSkuToId.get(parentIdStr.toLowerCase()) || null;
+          }
+
+          // 3. Try product_sku column as an alternative
+          if (!resolvedProductId && rec.product_sku) {
+            const altSku = String(rec.product_sku).trim().toLowerCase();
+            if (isValidUUID(altSku)) {
+              resolvedProductId = altSku;
+            } else {
+              resolvedProductId = productSkuToId.get(altSku) || null;
             }
           }
 
-          if (!resolvedProductId && rec.product_sku) {
-            resolvedProductId = productSkuToId.get(String(rec.product_sku).trim().toLowerCase()) || null;
-          }
-
           if (!resolvedProductId) {
-            throw new Error(`Row ${idx + 2}: Parent product not found for identifier "${parentIdStr}". Ensure you import products first.`);
+            throw new Error(`Row ${idx + 2}: Cannot resolve parent product for "${parentIdStr}". Use a valid UUID or a SKU that exists in your store.`);
           }
 
           // Ensure Variant SKU is valid and trimmed
