@@ -135,6 +135,16 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* Bottom Nav */}
       <div className="flex flex-col gap-1 px-2 mt-4 pt-4 border-t border-outline-variant/15">
         <Link
+          href="/profile"
+          className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
+            pathname === "/profile" ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-lg" : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+          }`}
+        >
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: pathname === "/profile" ? "'FILL' 1" : "'FILL' 0" }}>account_circle</span>
+          Profile
+        </Link>
+
+        <Link
           href="/settings"
           className={`flex items-center gap-4 px-6 py-3 rounded-full font-['Manrope'] text-sm tracking-wide uppercase font-semibold transition-all duration-200 ${
             pathname === "/settings" ? "bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 shadow-lg" : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
