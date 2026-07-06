@@ -89,34 +89,48 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in to restore a backup.");
 
-      const productIdMap = new Map<string, string>(); // old product.id -> new product.id
-      const orderIdMap = new Map<string, string>(); // old order.id -> new order.id
+      const productIdMap = new Map<string, string>(); // old id -> new id
+      const orderIdMap = new Map<string, string>();   // old id -> new id
 
       for (const p of backup.products) {
-        // Exclude extra fields, old ID, etc.
-        const { variants, price_summary, total_stock, id: oldId, ...productData } = p;
-        
-        // Override owner_id to current user
-        productData.owner_id = user.id;
+        // Generate a fresh UUID — never reuse the backup's id
+        const newProductId = crypto.randomUUID();
+        productIdMap.set(p.id, newProductId);
 
-        // Insert product (without ID, so DB generates a new one) and return the new ID
-        const { data: newProduct, error: pError } = await supabase
-          .from('products')
-          .insert(productData)
-          .select('id')
-          .single();
-          
+        // Build a clean product object with ONLY known columns
+        const cleanProduct: any = {
+          id:          newProductId,
+          sku:         p.sku,
+          title:       p.title,
+          brand:       p.brand        ?? null,
+          category:    p.category     ?? null,
+          description: p.description  ?? null,
+          image_url:   p.image_url    ?? null,
+          is_archived: p.is_archived  ?? false,
+          created_at:  p.created_at   ?? new Date().toISOString(),
+          owner_id:    user.id,
+        };
+
+        const { error: pError } = await supabase.from('products').insert(cleanProduct);
         if (pError) throw pError;
-        
-        productIdMap.set(oldId, newProduct.id);
 
-        // Insert variants if they exist, linking to the new product ID
-        if (variants && variants.length > 0) {
-          const variantsWithOwner = variants.map((v: any) => {
-            const { id: oldVId, ...vData } = v;
-            return { ...vData, product_id: newProduct.id, owner_id: user.id };
-          });
-          const { error: vError } = await supabase.from('variants').insert(variantsWithOwner);
+        // Restore variants for this product
+        const variants = p.variants || [];
+        if (variants.length > 0) {
+          const cleanVariants = variants.map((v: any) => ({
+            id:         crypto.randomUUID(),
+            product_id: newProductId,
+            sku:        v.sku        ?? null,
+            name:       v.name       ?? null,
+            price:      v.price      ?? 0,
+            cost:       v.cost       ?? null,
+            stock:      v.stock      ?? 0,
+            barcode:    v.barcode    ?? null,
+            image_url:  v.image_url  ?? null,
+            created_at: v.created_at ?? new Date().toISOString(),
+            owner_id:   user.id,
+          }));
+          const { error: vError } = await supabase.from('variants').insert(cleanVariants);
           if (vError) throw vError;
         }
       }
@@ -124,37 +138,40 @@ export default function Settings() {
       // 3. Restore Orders & Items
       if (backup.orders && backup.orders.length > 0) {
         for (const o of backup.orders) {
-          const { id: oldOrderId, ...orderData } = o;
-          orderData.owner_id = user.id;
-          
-          const { data: newOrder, error: oError } = await supabase
-            .from('orders')
-            .insert(orderData)
-            .select('id')
-            .single();
-            
+          const newOrderId = crypto.randomUUID();
+          orderIdMap.set(o.id, newOrderId);
+
+          const cleanOrder: any = {
+            id:            newOrderId,
+            order_number:  o.order_number  ?? null,
+            status:        o.status        ?? 'completed',
+            total_amount:  o.total_amount  ?? 0,
+            notes:         o.notes         ?? null,
+            created_at:    o.created_at    ?? new Date().toISOString(),
+            owner_id:      user.id,
+          };
+
+          const { error: oError } = await supabase.from('orders').insert(cleanOrder);
           if (oError) throw oError;
-          
-          orderIdMap.set(oldOrderId, newOrder.id);
         }
       }
 
       if (backup.order_items && backup.order_items.length > 0) {
-        const itemsWithOwner = backup.order_items.map((i: any) => {
-          const { id: oldItemId, ...itemData } = i;
-          return {
-            ...itemData,
-            order_id: orderIdMap.get(itemData.order_id) || itemData.order_id,
-            product_id: itemData.product_id ? (productIdMap.get(itemData.product_id) || itemData.product_id) : null,
-            owner_id: user.id
-          };
-        });
-        
-        // Chunk inserts to avoid payload size issues
+        const cleanItems = backup.order_items.map((i: any) => ({
+          id:         crypto.randomUUID(),
+          order_id:   orderIdMap.get(i.order_id)   || i.order_id,
+          product_id: i.product_id ? (productIdMap.get(i.product_id) || null) : null,
+          variant_id: i.variant_id ?? null,
+          quantity:   i.quantity   ?? 1,
+          price:      i.price      ?? 0,
+          created_at: i.created_at ?? new Date().toISOString(),
+          owner_id:   user.id,
+        }));
+
+        // Chunk to avoid payload limits
         const chunkSize = 100;
-        for (let i = 0; i < itemsWithOwner.length; i += chunkSize) {
-          const chunk = itemsWithOwner.slice(i, i + chunkSize);
-          const { error: iError } = await supabase.from('order_items').insert(chunk);
+        for (let i = 0; i < cleanItems.length; i += chunkSize) {
+          const { error: iError } = await supabase.from('order_items').insert(cleanItems.slice(i, i + chunkSize));
           if (iError) throw iError;
         }
       }
