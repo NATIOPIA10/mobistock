@@ -54,22 +54,13 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     }
   };
 
-  // Run ONCE on mount — always force logout to require fresh login
+  // Run ONCE on mount — check existing session, redirect if not logged in
   useEffect(() => {
     const active = { value: true };
 
-    // Sign out any existing session immediately so login is always required
-    supabase.auth.signOut().then(() => {
-      if (active.value) {
-        router.push("/login");
-        setIsLoading(false);
-      }
-    }).catch((err) => {
-      console.error("Error signing out on mount:", err);
-      if (active.value) {
-        router.push("/login");
-        setIsLoading(false);
-      }
+    // Check for an existing valid session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session, active);
     });
 
     // Listen for future auth state changes (login / logout)
