@@ -86,60 +86,67 @@ export default function Settings() {
       if (deletePError) throw deletePError;
 
       // 2. Restore Products & Variants
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be logged in to restore a backup.");
+
       for (const p of backup.products) {
         // Exclude extra computed fields added in the new backup format
         const { variants, price_summary, total_stock, ...productData } = p;
+        // Override owner_id to current user
+        productData.owner_id = user.id;
+
         // Insert product
         const { error: pError } = await supabase.from('products').insert(productData);
         if (pError) throw pError;
 
         // Insert variants if they exist
         if (variants && variants.length > 0) {
-          const { error: vError } = await supabase.from('variants').insert(variants);
+          const variantsWithOwner = variants.map((v: any) => ({ ...v, owner_id: user.id }));
+          const { error: vError } = await supabase.from('variants').insert(variantsWithOwner);
           if (vError) throw vError;
         }
       }
 
       // 3. Restore Orders & Items
       if (backup.orders && backup.orders.length > 0) {
-        const { error: oError } = await supabase.from('orders').insert(backup.orders);
+        const ordersWithOwner = backup.orders.map((o: any) => ({ ...o, owner_id: user.id }));
+        const { error: oError } = await supabase.from('orders').insert(ordersWithOwner);
         if (oError) throw oError;
       }
       if (backup.order_items && backup.order_items.length > 0) {
-        const { error: iError } = await supabase.from('order_items').insert(backup.order_items);
+        const itemsWithOwner = backup.order_items.map((i: any) => ({ ...i, owner_id: user.id }));
+        const { error: iError } = await supabase.from('order_items').insert(itemsWithOwner);
         if (iError) throw iError;
       }
 
       // 4. Restore Settings if available
       if (backup.settings) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Strip the backed-up id so we never collide with the pkey sequence
-          const { id: _ignoredId, owner_id: _ignoredOwner, ...restorePayload } = backup.settings;
-          const { data: existingSettings } = await supabase
+        // Strip the backed-up id so we never collide with the pkey sequence
+        const { id: _ignoredId, owner_id: _ignoredOwner, ...restorePayload } = backup.settings;
+        const { data: existingSettings } = await supabase
+          .from('store_settings')
+          .select('id')
+          .eq('owner_id', user.id)
+          .maybeSingle();
+        if (existingSettings) {
+          const { error: sError } = await supabase
             .from('store_settings')
-            .select('id')
-            .eq('owner_id', user.id)
-            .maybeSingle();
-          if (existingSettings) {
-            const { error: sError } = await supabase
-              .from('store_settings')
-              .update({ ...restorePayload, owner_id: user.id })
-              .eq('owner_id', user.id);
-            if (sError) throw sError;
-          } else {
-            const { error: sError } = await supabase
-              .from('store_settings')
-              .insert({ ...restorePayload, owner_id: user.id });
-            if (sError) throw sError;
-          }
+            .update({ ...restorePayload, owner_id: user.id })
+            .eq('owner_id', user.id);
+          if (sError) throw sError;
+        } else {
+          const { error: sError } = await supabase
+            .from('store_settings')
+            .insert({ ...restorePayload, owner_id: user.id });
+          if (sError) throw sError;
         }
       }
 
       await supabase.from('security_logs').insert({
         event: "Database Restored",
         details: `System restored from backup: ${file.name}. Included ${backup.products.length} products and ${backup.orders?.length || 0} orders.`,
-        status: "success"
+        status: "success",
+        owner_id: user.id
       });
 
       alert("Database restored successfully! The page will now refresh.");
