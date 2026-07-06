@@ -23,7 +23,14 @@ export default function Login() {
       router.push("/");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("network")) {
+        setError("Network error: Cannot reach the server. Your Supabase project may be paused or your internet connection is weak. Visit supabase.com to check if the project is active.");
+      } else if (msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials") || msg.toLowerCase().includes("email not confirmed")) {
+        setError("Invalid email or password. Please check your credentials and try again.");
+      } else {
+        setError(msg || "Authentication failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
