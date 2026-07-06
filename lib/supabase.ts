@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const isBrowser = typeof window !== 'undefined';
+const supabaseUrl = isBrowser 
+  ? `${window.location.origin}/_supabase` 
+  : process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -9,6 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
     // Explicitly use localStorage so iOS Safari PWA mode keeps the session
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storage: isBrowser ? window.localStorage : undefined,
   },
 });
