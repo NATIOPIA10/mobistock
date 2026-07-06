@@ -2,7 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-console.log('Supabase config → URL:', supabaseUrl);
-console.log('Supabase config → ANON KEY (first 8 chars):', supabaseAnonKey?.slice(0, 8) + '...');
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    // Explicitly use localStorage so iOS Safari PWA mode keeps the session
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+});
