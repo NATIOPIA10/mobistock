@@ -89,19 +89,33 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in to restore a backup.");
 
+      const productIdMap = new Map<string, string>(); // old product.id -> new product.id
+      const orderIdMap = new Map<string, string>(); // old order.id -> new order.id
+
       for (const p of backup.products) {
-        // Exclude extra computed fields added in the new backup format
-        const { variants, price_summary, total_stock, ...productData } = p;
+        // Exclude extra fields, old ID, etc.
+        const { variants, price_summary, total_stock, id: oldId, ...productData } = p;
+        
         // Override owner_id to current user
         productData.owner_id = user.id;
 
-        // Insert product
-        const { error: pError } = await supabase.from('products').insert(productData);
+        // Insert product (without ID, so DB generates a new one) and return the new ID
+        const { data: newProduct, error: pError } = await supabase
+          .from('products')
+          .insert(productData)
+          .select('id')
+          .single();
+          
         if (pError) throw pError;
+        
+        productIdMap.set(oldId, newProduct.id);
 
-        // Insert variants if they exist
+        // Insert variants if they exist, linking to the new product ID
         if (variants && variants.length > 0) {
-          const variantsWithOwner = variants.map((v: any) => ({ ...v, owner_id: user.id }));
+          const variantsWithOwner = variants.map((v: any) => {
+            const { id: oldVId, ...vData } = v;
+            return { ...vData, product_id: newProduct.id, owner_id: user.id };
+          });
           const { error: vError } = await supabase.from('variants').insert(variantsWithOwner);
           if (vError) throw vError;
         }
@@ -109,14 +123,40 @@ export default function Settings() {
 
       // 3. Restore Orders & Items
       if (backup.orders && backup.orders.length > 0) {
-        const ordersWithOwner = backup.orders.map((o: any) => ({ ...o, owner_id: user.id }));
-        const { error: oError } = await supabase.from('orders').insert(ordersWithOwner);
-        if (oError) throw oError;
+        for (const o of backup.orders) {
+          const { id: oldOrderId, ...orderData } = o;
+          orderData.owner_id = user.id;
+          
+          const { data: newOrder, error: oError } = await supabase
+            .from('orders')
+            .insert(orderData)
+            .select('id')
+            .single();
+            
+          if (oError) throw oError;
+          
+          orderIdMap.set(oldOrderId, newOrder.id);
+        }
       }
+
       if (backup.order_items && backup.order_items.length > 0) {
-        const itemsWithOwner = backup.order_items.map((i: any) => ({ ...i, owner_id: user.id }));
-        const { error: iError } = await supabase.from('order_items').insert(itemsWithOwner);
-        if (iError) throw iError;
+        const itemsWithOwner = backup.order_items.map((i: any) => {
+          const { id: oldItemId, ...itemData } = i;
+          return {
+            ...itemData,
+            order_id: orderIdMap.get(itemData.order_id) || itemData.order_id,
+            product_id: itemData.product_id ? (productIdMap.get(itemData.product_id) || itemData.product_id) : null,
+            owner_id: user.id
+          };
+        });
+        
+        // Chunk inserts to avoid payload size issues
+        const chunkSize = 100;
+        for (let i = 0; i < itemsWithOwner.length; i += chunkSize) {
+          const chunk = itemsWithOwner.slice(i, i + chunkSize);
+          const { error: iError } = await supabase.from('order_items').insert(chunk);
+          if (iError) throw iError;
+        }
       }
 
       // 4. Restore Settings if available
